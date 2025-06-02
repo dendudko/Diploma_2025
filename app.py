@@ -154,6 +154,14 @@ def get_clusters():
     return jsonify(clusters_data)
 
 
+@app.route('/choose_dataset', methods=['POST'])
+def choose_dataset():
+    dataset_name = request.form.get('dataset_name')
+    if not dataset_name:
+        return jsonify(success=False, message='Датасет не выбран!')
+    return jsonify(success=True, message=f'Выбран датасет: {dataset_name}')
+
+
 @app.route('/')
 def index():
     if not current_user.is_authenticated:
@@ -162,7 +170,9 @@ def index():
     clustering_params = load_clustering_params()
     graph_params = load_graph_params()
 
+    dev_datasets = {'all': [1235019859185, 2, 3], 'mine': [3]}
     return render_template('index.html',
+                           datasets=dev_datasets,
                            clustering_params=clustering_params,
                            graph_params=graph_params,
                            int=int,

@@ -180,12 +180,39 @@
         <!-- Выбор датасета -->
         <details open>
             <summary>Выбор датасета</summary>
-            <div class="param-row">
-                Тут нужно сделать вывод датасетов, мб двумя вкладками типо все/мои
-            </div>
-            <div class="buttons">
-                <button type="submit" class="red_text">Подтвердить выбор</button>
-            </div>
+            <form id="dataset-form">
+                <div class="tabs">
+                    <button type="button" class="tab-btn active" onclick="showTab('all')">Все</button>
+                    <button type="button" class="tab-btn" onclick="showTab('mine')">Мои</button>
+                </div>
+                <div class="tab-content" id="tab-all">
+                    {% for ds in datasets['all'] %}
+                        <div class="dataset-option">
+                            <input type="radio" id="ds-all-{{ ds }}" name="dataset_name" value="{{ ds }}">
+                            <label for="ds-all-{{ ds }}">{{ ds }}</label>
+                        </div>
+                    {% endfor %}
+                    {% if not datasets['all'] %}
+                        <div>Нет доступных датасетов</div>
+                    {% endif %}
+                </div>
+                <div class="tab-content" id="tab-mine" style="display: none;">
+                    {% for ds in datasets['mine'] %}
+                        <div class="dataset-option">
+                            <input type="radio" id="ds-mine-{{ ds }}" name="dataset_name" value="{{ ds }}">
+                            <label for="ds-mine-{{ ds }}">{{ ds }}</label>
+                        </div>
+                    {% endfor %}
+                    {% if not datasets['mine'] %}
+                        <div>У вас нет своих датасетов</div>
+                    {% endif %}
+                </div>
+                <div class="buttons">
+                    <button type="submit" class="red_text">Подтвердить выбор</button>
+                </div>
+            </form>
+            <div id="dataset-error" class="dataset-message" style="color: #c82333;"></div>
+            <div id="dataset-success" class="dataset-message" style="color: #28a745;"></div>
         </details>
 
         <!-- Кластеризация -->
@@ -753,8 +780,11 @@
         details.addEventListener('click', e => {
             // Если клик именно на summary или на checkbox — не вмешиваемся
             if (e.target.tagName.toLowerCase() === 'summary' ||
+                e.target.tagName.toLowerCase() === 'label' ||
                 (e.target.tagName.toLowerCase() === 'input' && e.target.type === 'checkbox') ||
-                (e.target.tagName.toLowerCase() === 'input' && e.target.type === 'file')) return;
+                (e.target.tagName.toLowerCase() === 'input' && e.target.type === 'file') ||
+                (e.target.tagName.toLowerCase() === 'input' && e.target.type === 'radio') ||
+                (e.target.tagName.toLowerCase() === 'button' && e.target.type === 'submit')) return;
 
             // Если details закрыт — открываем
             if (!details.open) {
@@ -779,6 +809,61 @@
         window.location.href = "/logout";
     });
 
-</script>
+    function showTab(tab) {
+        document.getElementById('tab-all').style.display = tab === 'all' ? '' : 'none';
+        document.getElementById('tab-mine').style.display = tab === 'mine' ? '' : 'none';
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('.tab-btn' + (tab === 'all' ? ':first-child' : ':last-child')).classList.add('active');
+    }
 
+    document.addEventListener('DOMContentLoaded', function () {
+        // Визуальное выделение выбранного датасета
+        document.querySelectorAll('input[name="dataset_name"]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                document.querySelectorAll('.dataset-option').forEach(opt => opt.classList.remove('selected'));
+                if (radio.checked) {
+                    radio.closest('.dataset-option').classList.add('selected');
+                }
+            });
+        });
+
+        // AJAX submit формы
+        document.getElementById('dataset-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            document.getElementById('dataset-error').style.display = 'none';
+            document.getElementById('dataset-success').style.display = 'none';
+
+            const selected = document.querySelector('input[name="dataset_name"]:checked');
+            if (!selected) {
+                document.getElementById('dataset-error').textContent = 'Пожалуйста, выберите датасет!';
+                document.getElementById('dataset-error').style.display = 'block';
+                return;
+            }
+
+            fetch('/choose_dataset', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'dataset_name=' + encodeURIComponent(selected.value)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('dataset-success').textContent = data.message;
+                        document.getElementById('dataset-success').style.display = 'block';
+                    } else {
+                        document.getElementById('dataset-error').textContent = data.message || 'Ошибка!';
+                        document.getElementById('dataset-error').style.display = 'block';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('dataset-error').textContent = 'Ошибка соединения с сервером!';
+                    document.getElementById('dataset-error').style.display = 'block';
+                });
+        });
+    });
+
+</script>
 </html>

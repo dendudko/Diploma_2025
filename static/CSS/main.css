@@ -267,3 +267,72 @@ summary {
 .logout-button:hover {
     background-color: #c82333;
 }
+
+.tabs {
+    display: flex;
+    margin-bottom: 10px;
+    gap: 10px;
+}
+
+.tab-btn {
+    flex: 1 1 0;
+    padding: 6px 20px;
+    border: 1px solid gainsboro;
+    background: none;
+    cursor: pointer;
+    font-weight: 500;
+    border-radius: 5px 5px 0 0;
+    transition: background 0.2s, border-bottom 0.2s;
+}
+
+.tab-btn.active {
+    background: #fff;
+    border-bottom: 2px solid #007bff;
+    color: #007bff;
+}
+
+.dataset-option {
+    width: 100%;
+    margin-bottom: 4px;
+    position: relative;
+}
+
+.dataset-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.dataset-option label {
+    display: block;
+    width: 100%;
+    padding: 6px 8px;
+    background: #f5f7fa;
+    border: 1px solid #cfd8dc;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    font-size: 0.9em;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+.dataset-option.selected label,
+.dataset-option input[type="radio"]:checked + label {
+    background: #e3f0ff;
+    border-color: #007bff;
+    color: #007bff;
+    font-weight: 600;
+}
+
+.dataset-option label:hover {
+    background: #e9ecef;
+    border-color: #90caf9;
+}
+
+.dataset-message {
+    margin-top: 8px;
+    display: none;
+    font-size: 0.9em;
+}
