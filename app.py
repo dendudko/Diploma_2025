@@ -170,7 +170,7 @@ def index():
     clustering_params = load_clustering_params()
     graph_params = load_graph_params()
 
-    dev_datasets = {'all': [1235019859185, 2, 3], 'mine': [3]}
+    dev_datasets = {'all': ['акватория 1', 'акватория 2', 'акватория 3'], 'mine': ['акватория 1']}
     return render_template('index.html',
                            datasets=dev_datasets,
                            clustering_params=clustering_params,

@@ -308,7 +308,7 @@ summary {
     display: block;
     width: 100%;
     padding: 6px 8px;
-    background: #f5f7fa;
+    background: #fff;
     border: 1px solid #cfd8dc;
     border-radius: 6px;
     cursor: pointer;
@@ -327,8 +327,8 @@ summary {
 }
 
 .dataset-option label:hover {
-    background: #e9ecef;
-    border-color: #90caf9;
+    background: #edf3ff;
+    border-color: #b3d3ff;
 }
 
 .dataset-message {
