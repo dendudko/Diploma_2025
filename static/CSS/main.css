@@ -137,11 +137,11 @@ summary {
     background-color: #fff;
     transition: border-color 0.2s ease-in-out;
     min-width: 0; /* важно для корректного сжатия */
-    cursor: pointer;
+    cursor: auto;
 }
 
 .param-row input[type="checkbox"] {
-    flex: 0 0 auto;
+    flex: none;
     width: auto;
     margin-left: 0;
     margin-right: 0;
@@ -165,7 +165,7 @@ summary {
     max-width: 100%;
     box-sizing: border-box;
 
-    padding: 12px 14px; /* вертикальные и горизонтальные отступы */
+    padding: 6px 7px; /* вертикальные и горизонтальные отступы */
     font-size: 1em;
 
     white-space: normal; /* разрешаем перенос строк */
@@ -241,6 +241,18 @@ summary {
     width: 0;
 }
 
+.upload_field {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 4px 0;
+    font-size: 0.9em;
+}
+
+.upload_field input[type="file"] {
+    width: 100%;
+    margin-top: 4px;
+}
+
 .logout-button {
     padding: 8px 12px;
     background-color: rgb(255, 76, 90);
@@ -254,4 +266,73 @@ summary {
 
 .logout-button:hover {
     background-color: #c82333;
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 10px;
+    gap: 10px;
+}
+
+.tab-btn {
+    flex: 1 1 0;
+    padding: 6px 20px;
+    border: 1px solid gainsboro;
+    background: none;
+    cursor: pointer;
+    font-weight: 500;
+    border-radius: 5px 5px 0 0;
+    transition: background 0.2s, border-bottom 0.2s;
+}
+
+.tab-btn.active {
+    background: #fff;
+    border-bottom: 2px solid #007bff;
+    color: #007bff;
+}
+
+.dataset-option {
+    width: 100%;
+    margin-bottom: 4px;
+    position: relative;
+}
+
+.dataset-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.dataset-option label {
+    display: block;
+    width: 100%;
+    padding: 6px 8px;
+    background: #fff;
+    border: 1px solid #cfd8dc;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    font-size: 0.9em;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+.dataset-option.selected label,
+.dataset-option input[type="radio"]:checked + label {
+    background: #e3f0ff;
+    border-color: #007bff;
+    color: #007bff;
+    font-weight: 600;
+}
+
+.dataset-option label:hover {
+    background: #edf3ff;
+    border-color: #b3d3ff;
+}
+
+.dataset-message {
+    margin-top: 8px;
+    display: none;
+    font-size: 0.9em;
 }

@@ -6,7 +6,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from Main.main import *
+from Main.main import call_clustering, load_clustering_params, call_find_path, load_graph_params
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'FeAF<j,f322AfHnE_VfCnB#'
@@ -118,7 +118,6 @@ def create_tables():
 def get_graph():
     parameters_for_graph = request.get_json()
 
-    # вызвать функцию построения графа
     start_long, start_lat = get_coordinates(parameters_for_graph['start_coords'])
     end_long, end_lat = get_coordinates(parameters_for_graph['end_coords'])
     coords = dict(start_lat=start_lat, start_long=start_long, end_lat=end_lat, end_long=end_long)
@@ -146,7 +145,6 @@ def get_coordinates(coords):
 def get_clusters():
     parameters_for_DBSCAN = request.get_json()
     # print(parameters_for_DBSCAN)
-    # вызвать функцию кластеризации
 
     for key in parameters_for_DBSCAN:
         if key != 'hull_type':
@@ -154,6 +152,14 @@ def get_clusters():
 
     clusters_data = call_clustering(parameters_for_DBSCAN)
     return jsonify(clusters_data)
+
+
+@app.route('/choose_dataset', methods=['POST'])
+def choose_dataset():
+    dataset_name = request.form.get('dataset_name')
+    if not dataset_name:
+        return jsonify(success=False, message='Датасет не выбран!')
+    return jsonify(success=True, message=f'Выбран датасет: {dataset_name}')
 
 
 @app.route('/')
@@ -164,7 +170,9 @@ def index():
     clustering_params = load_clustering_params()
     graph_params = load_graph_params()
 
+    dev_datasets = {'all': ['акватория 1', 'акватория 2', 'акватория 3'], 'mine': ['акватория 1']}
     return render_template('index.html',
+                           datasets=dev_datasets,
                            clustering_params=clustering_params,
                            graph_params=graph_params,
                            int=int,
@@ -173,4 +181,4 @@ def index():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
