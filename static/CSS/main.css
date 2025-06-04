@@ -76,7 +76,7 @@ body {
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
     border-right: 1px solid #ddd;
-    box-sizing: border-box; /* Добавлено для правильного расчёта ширины */
+    box-sizing: border-box;
 }
 
 /* Оформление блоков с details */
@@ -254,18 +254,67 @@ summary {
 }
 
 .logout-button {
-    padding: 8px 12px;
-    background-color: rgb(255, 76, 90);
-    color: white;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px 6px 12px;
+    background: #ff3e3e;
     border: none;
-    border-radius: 5px;
-    cursor: pointer;
+    color: #fff;
+    font-family: Arial, sans-serif;
     font-size: 0.9em;
-    transition: background-color 0.2s ease-in-out;
+    border-radius: 8px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s ease-in-out;
+    box-shadow: 0 5px 10px rgba(255, 62, 62, 0.5);
+    float: right;
+}
+
+.logout-button .icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 5px;
+    background: url('https://img.icons8.com/ios-filled/50/ffffff/logout-rounded-left.png') no-repeat center center / contain;
+    transition: transform 0.4s ease;
+}
+
+.logout-button .text {
+    position: relative;
+    z-index: 1;
+    transition: transform 0.4s ease;
+}
+
+.logout-button::before, .logout-button::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 140%;
+    height: 140%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.15), transparent);
+    transition: all 0.6s ease;
+    border-radius: 50%;
+    z-index: 0;
+    transform: translate(-50%, -50%) scale(0);
+}
+
+.logout-button:hover::before {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.logout-button:hover .icon {
+    transform: translateX(-5px) rotate(-360deg);
+}
+
+.logout-button:hover .text {
+    transform: translateX(-5px);
 }
 
 .logout-button:hover {
-    background-color: #c82333;
+    background: #ff1e1e;
+    /*transform: scale(1.05);*/
 }
 
 .tabs {
