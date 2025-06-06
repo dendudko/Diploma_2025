@@ -16,7 +16,7 @@
 
             <!-- Загрузка и обработка данных -->
             <details>
-                <summary>Загрузка и обработка данных</summary>
+                <summary>Загрузка и обработка</summary>
                 <form action="/upload" method="post" enctype="multipart/form-data">
                     <div class="upload_field">
                         <label for="file-positions">Данные о движении</label>
@@ -25,6 +25,10 @@
                     <div class="upload_field">
                         <label for="file-marine">Данные о судах</label>
                         <input type="file" id="file-marine" name="file" accept=".csv,.xlsx">
+                    </div>
+                    <div class="param-row">
+                        <label for="dataset-name">Название датасета</label>
+                        <input type="text" id="dataset-name">
                     </div>
                     <div class="param-row" style="font-weight: bold;">Параметры интерполяции</div>
                     <div class="param-row">

@@ -1,18 +1,22 @@
-from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler
-from sklearn.utils import parallel_backend
-from LoadData.load_data import load_data
-from Map.map import MapBuilder
+import os
 import pickle
 import time
-import os
+
+from joblib import parallel_backend
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+
+from LoadData.load_data import load_data
+from Map.map import MapBuilder
+
+
 # from sklearn.neighbors import NearestNeighbors
 # import numpy as np
 # import matplotlib.pyplot as plt
 # import statistics
 
 
-def clustering(clustering_params, file_name='all_merged', create_new_empty_map=False):
+def clustering(clustering_params, file_name='all_merged', create_new_empty_map=True):
     weight_distance = clustering_params['weight_distance']
     weight_speed = clustering_params['weight_speed']
     weight_course = clustering_params['weight_course']
@@ -78,12 +82,12 @@ def clustering(clustering_params, file_name='all_merged', create_new_empty_map=F
     map_builder.dbscan_time = dbscan_time
     clustered_images = map_builder.create_clustered_map()
 
-    # Обнуляем несериализуемые pickle поля
-    map_builder.map_image = None
-    map_builder.context = None
-    # Сохраняем дамп объекта map_builder
-    with open('./Main/map_builder_dump.pickle', 'wb') as dump_file:
-        pickle.dump(map_builder, dump_file, protocol=pickle.HIGHEST_PROTOCOL)
+    # # Обнуляем несериализуемые pickle поля
+    # map_builder.map_image = None
+    # map_builder.context = None
+    # # Сохраняем дамп объекта map_builder
+    # with open('./Main/map_builder_dump.pickle', 'wb') as dump_file:
+    #     pickle.dump(map_builder, dump_file, protocol=pickle.HIGHEST_PROTOCOL)
 
     return clustered_images
 

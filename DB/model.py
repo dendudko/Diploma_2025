@@ -12,6 +12,8 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     # role = db.Column(db.String(16), nullable=False)
 
+    datasets = db.relationship('Datasets', back_populates='user_ref', cascade="all, delete-orphan")
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -29,6 +31,7 @@ class Hashes(db.Model):
     clusters = db.relationship('Clusters', back_populates='hash_ref', cascade="all, delete-orphan")
     polygons = db.relationship('ClPolygons', back_populates='hash_ref', cascade="all, delete-orphan")
     graphs = db.relationship('Graphs', back_populates='hash_ref', cascade="all, delete-orphan")
+    datasets = db.relationship('Datasets', back_populates='hash_ref', cascade="all, delete-orphan")
 
 
 class PositionsCleaned(db.Model):
@@ -42,6 +45,16 @@ class PositionsCleaned(db.Model):
 
     hash_ref = db.relationship('Hashes', back_populates='positions')
     clusters = db.relationship('Clusters', back_populates='position_ref', cascade="all, delete-orphan")
+
+
+class Datasets(db.Model):
+    __tablename__ = 'datasets'
+    hash_id = db.Column(db.Integer, db.ForeignKey('hashes.hash_id'), nullable=False, primary_key=True)
+    dataset_name = db.Column(db.String(64), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    user_ref = db.relationship('User', back_populates='datasets')
+    hash_ref = db.relationship('Hashes', back_populates='datasets')
 
 
 class Clusters(db.Model):
