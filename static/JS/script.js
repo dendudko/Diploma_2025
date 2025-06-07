@@ -448,6 +448,7 @@ document.querySelectorAll('details').forEach(details => {
         // Если клик именно на summary или на checkbox — не вмешиваемся
         if (e.target.tagName.toLowerCase() === 'summary' ||
             e.target.tagName.toLowerCase() === 'label' ||
+            e.target.tagName.toLowerCase() === 'span' ||
             (e.target.tagName.toLowerCase() === 'input' && e.target.type === 'checkbox') ||
             (e.target.tagName.toLowerCase() === 'input' && e.target.type === 'file') ||
             (e.target.tagName.toLowerCase() === 'input' && e.target.type === 'radio') ||
@@ -476,6 +477,147 @@ document.querySelector('.logout-button').addEventListener('click', function () {
     window.location.href = "/logout";
 });
 
+document.addEventListener('DOMContentLoaded', function () {
+    // --- Переключатель для max_gap_minutes ---
+    const interpolationSwitch = document.getElementById('interpolation');
+    const maxGapInput = document.getElementById('max_gap_minutes');
+    const maxGapLabel = document.getElementById('max_gap_label');
+    let lastValue = maxGapInput.value;
+
+    function updateMaxGapState() {
+        if (interpolationSwitch.checked) {
+            maxGapInput.disabled = false;
+            maxGapInput.value = lastValue || 30;
+            maxGapLabel.classList.remove('disabled-label');
+        } else {
+            lastValue = maxGapInput.value;
+            maxGapInput.disabled = true;
+            maxGapInput.value = '';
+            maxGapLabel.classList.add('disabled-label');
+        }
+    }
+
+    interpolationSwitch.addEventListener('change', updateMaxGapState);
+    updateMaxGapState();
+
+    // --- Асинхронная отправка формы создания датасета ---
+    document.getElementById('upload-btn').addEventListener('click', function (event) {
+        event.preventDefault();
+
+        // Сброс сообщений
+        document.getElementById('upload-error').style.display = 'none';
+        document.getElementById('upload-success').style.display = 'none';
+        document.getElementById('upload-loading').style.display = 'none';
+
+        // Валидация: название датасета не должно быть пустым
+        const datasetName = document.getElementById('dataset-name').value.trim();
+        if (!datasetName) {
+            document.getElementById('upload-error').textContent = 'Поле "Название датасета" обязательно для заполнения!';
+            document.getElementById('upload-error').style.display = 'block';
+            return;
+        }
+
+        // Валидация: оба файла выбраны
+        const filePositions = document.getElementById('file-positions').files[0];
+        const fileMarine = document.getElementById('file-marine').files[0];
+        if (!filePositions || !fileMarine) {
+            document.getElementById('upload-error').textContent = 'Пожалуйста, выберите оба файла!';
+            document.getElementById('upload-error').style.display = 'block';
+            return;
+        }
+
+        // Показать "Загрузка..."
+        document.getElementById('upload-loading').style.display = 'block';
+
+        // Формируем данные для отправки
+        const form = document.getElementById('dataset-upload-form');
+        const formData = new FormData(form);
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('upload-loading').style.display = 'none';
+                if (data.success) {
+                    document.getElementById('upload-success').textContent = data.message || 'Данные успешно загружены!';
+                    document.getElementById('upload-success').style.display = 'block';
+                    updateDatasetList();
+                } else {
+                    document.getElementById('upload-error').textContent = data.message || 'Ошибка загрузки!';
+                    document.getElementById('upload-error').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                document.getElementById('upload-loading').style.display = 'none';
+                document.getElementById('upload-error').textContent = 'Ошибка соединения с сервером!';
+                document.getElementById('upload-error').style.display = 'block';
+            });
+    });
+});
+
+let selectedDatasetId = null;
+
+function updateDatasetList() {
+    fetch('/get_datasets')
+        .then(response => response.json())
+        .then(data => {
+            // Сохраняем выбранный id (если был выбран)
+            if (!selectedDatasetId) {
+                // Если еще не выбран, ищем выбранный radio (например, при первой загрузке)
+                const checked = document.querySelector('input[name="dataset_id"]:checked');
+                if (checked) selectedDatasetId = checked.value;
+            }
+
+            // Обновляем "Все"
+            const tabAll = document.getElementById('tab-all');
+            tabAll.innerHTML = '';
+            if (data.all.length === 0) {
+                tabAll.innerHTML = '<div>Нет доступных датасетов</div>';
+            } else {
+                data.all.forEach(ds => {
+                    tabAll.innerHTML += `
+                        <div class="dataset-option${selectedDatasetId == ds.id ? ' selected' : ''}">
+                            <input type="radio" id="ds-all-${ds.id}" name="dataset_id" value="${ds.id}" ${selectedDatasetId == ds.id ? 'checked' : ''}>
+                            <label for="ds-all-${ds.id}">${ds.name}</label>
+                        </div>`;
+                });
+            }
+            // Обновляем "Мои"
+            const tabMine = document.getElementById('tab-mine');
+            tabMine.innerHTML = '';
+            if (data.mine.length === 0) {
+                tabMine.innerHTML = '<div>У вас нет своих датасетов</div>';
+            } else {
+                data.mine.forEach(ds => {
+                    tabMine.innerHTML += `
+                        <div class="dataset-option${selectedDatasetId == ds.id ? ' selected' : ''}">
+                            <input type="radio" id="ds-mine-${ds.id}" name="dataset_id" value="${ds.id}" ${selectedDatasetId == ds.id ? 'checked' : ''}>
+                            <label for="ds-mine-${ds.id}">${ds.name}</label>
+                        </div>`;
+                });
+            }
+            // Повторно навешиваем обработчики выделения
+            document.querySelectorAll('input[name="dataset_id"]').forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    selectedDatasetId = radio.value;
+                    // Выделяем выбранный во всех вкладках
+                    document.querySelectorAll('.dataset-option').forEach(opt => {
+                        const input = opt.querySelector('input[name="dataset_id"]');
+                        if (input && input.value === selectedDatasetId) {
+                            opt.classList.add('selected');
+                            input.checked = true;
+                        } else {
+                            opt.classList.remove('selected');
+                            if (input) input.checked = false;
+                        }
+                    });
+                });
+            });
+        });
+}
+
 function showTab(tab) {
     document.getElementById('tab-all').style.display = tab === 'all' ? '' : 'none';
     document.getElementById('tab-mine').style.display = tab === 'mine' ? '' : 'none';
@@ -484,14 +626,23 @@ function showTab(tab) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Визуальное выделение выбранного датасета
-    document.querySelectorAll('input[name="dataset_name"]').forEach(function (radio) {
+    // Сохраняем выбранный id при первом выборе
+    document.querySelectorAll('input[name="dataset_id"]').forEach(function (radio) {
         radio.addEventListener('change', function () {
-            document.querySelectorAll('.dataset-option').forEach(opt => opt.classList.remove('selected'));
-            if (radio.checked) {
-                radio.closest('.dataset-option').classList.add('selected');
-            }
+            selectedDatasetId = radio.value;
+            document.querySelectorAll('.dataset-option').forEach(opt => {
+                const input = opt.querySelector('input[name="dataset_id"]');
+                if (input && input.value === selectedDatasetId) {
+                    opt.classList.add('selected');
+                    input.checked = true;
+                } else {
+                    opt.classList.remove('selected');
+                    if (input) input.checked = false;
+                }
+            });
         });
+        // Если radio уже выбран при загрузке
+        if (radio.checked) selectedDatasetId = radio.value;
     });
 
     // AJAX submit формы
@@ -500,12 +651,13 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('dataset-error').style.display = 'none';
         document.getElementById('dataset-success').style.display = 'none';
 
-        const selected = document.querySelector('input[name="dataset_name"]:checked');
+        const selected = document.querySelector('input[name="dataset_id"]:checked');
         if (!selected) {
             document.getElementById('dataset-error').textContent = 'Пожалуйста, выберите датасет!';
             document.getElementById('dataset-error').style.display = 'block';
             return;
         }
+        selectedDatasetId = selected.value;
 
         fetch('/choose_dataset', {
             method: 'POST',
@@ -513,7 +665,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: 'dataset_name=' + encodeURIComponent(selected.value)
+            body: 'dataset_id=' + encodeURIComponent(selected.value)
         })
             .then(response => response.json())
             .then(data => {

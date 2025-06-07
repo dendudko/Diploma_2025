@@ -250,7 +250,7 @@ summary {
 
 .upload_field input[type="file"] {
     width: 100%;
-    margin-top: 4px;
+    margin-top: 6px;
 }
 
 .logout-button {
@@ -372,7 +372,7 @@ summary {
     background: #e3f0ff;
     border-color: #007bff;
     color: #007bff;
-    font-weight: 600;
+    font-size: 0.95em;
 }
 
 .dataset-option label:hover {
@@ -384,4 +384,62 @@ summary {
     margin-top: 8px;
     display: none;
     font-size: 0.9em;
+}
+
+.switch {
+    position: relative;
+    width: 46px;
+    height: 24px;
+    margin-left: 10px;
+    flex: none !important;
+    display: inline-block !important;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .2s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #007bff;
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+.param-row .disabled-label {
+    color: #b0b0b0;
+    transition: color 0.2s;
+}
+
+.param-row input:disabled {
+    background: #f3f3f3;
+    color: #b0b0b0;
+    border-color: #e0e0e0;
 }

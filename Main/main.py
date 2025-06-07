@@ -6,7 +6,7 @@ from joblib import parallel_backend
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 
-from LoadData.load_data import load_data
+from LoadData.load_data import load_data, process_and_store_dataset
 from Map.map import MapBuilder
 
 
@@ -14,6 +14,9 @@ from Map.map import MapBuilder
 # import numpy as np
 # import matplotlib.pyplot as plt
 # import statistics
+
+def call_process_and_store_dataset(file_positions, file_marine, dataset_name, user_id, interpolation, max_gap_minutes):
+    return process_and_store_dataset(file_positions, file_marine, dataset_name, user_id, interpolation, max_gap_minutes)
 
 
 def clustering(clustering_params, file_name='all_merged_inter', create_new_empty_map=True):

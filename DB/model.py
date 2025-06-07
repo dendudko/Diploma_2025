@@ -12,7 +12,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     # role = db.Column(db.String(16), nullable=False)
 
-    datasets = db.relationship('Datasets', back_populates='user_ref', cascade="all, delete-orphan")
+    datasets = db.relationship('Datasets', back_populates='user_ref', cascade="all, delete-orphan", uselist=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -31,7 +31,7 @@ class Hashes(db.Model):
     clusters = db.relationship('Clusters', back_populates='hash_ref', cascade="all, delete-orphan")
     polygons = db.relationship('ClPolygons', back_populates='hash_ref', cascade="all, delete-orphan")
     graphs = db.relationship('Graphs', back_populates='hash_ref', cascade="all, delete-orphan")
-    datasets = db.relationship('Datasets', back_populates='hash_ref', cascade="all, delete-orphan")
+    datasets = db.relationship('Datasets', back_populates='hash_ref', cascade="all, delete-orphan", uselist=False)
 
 
 class PositionsCleaned(db.Model):
