@@ -16,7 +16,7 @@ from Map.map import MapBuilder
 # import statistics
 
 
-def clustering(clustering_params, file_name='all_merged', create_new_empty_map=True):
+def clustering(clustering_params, file_name='all_merged_inter', create_new_empty_map=True):
     weight_distance = clustering_params['weight_distance']
     weight_speed = clustering_params['weight_speed']
     weight_course = clustering_params['weight_course']
