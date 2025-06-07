@@ -1930,3 +1930,163 @@
 Доля шума: 7658 / 43377
 Время выполнения DBSCAN: 18.572 (секунды)
 
+Параметры для DBSCAN: {'weight_distance': '1.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.309', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 41
+Доля шума: 9595 / 32587
+Время выполнения DBSCAN: 8.406 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '1.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.309', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '2'}
+Всего кластеров: 49
+Доля шума: 15595 / 117540
+Время выполнения DBSCAN: 42.725 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10', 'eps': '0.6', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 21
+Доля шума: 4927 / 117540
+Время выполнения DBSCAN: 70.438 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10', 'eps': '0.42', 'min_samples': '42', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 39
+Доля шума: 12176 / 117540
+Время выполнения DBSCAN: 22.135 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10', 'eps': '0.35', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 42
+Доля шума: 25261 / 117540
+Время выполнения DBSCAN: 20.062 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.42', 'min_samples': '42', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 43
+Доля шума: 15310 / 117540
+Время выполнения DBSCAN: 22.189 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.35', 'min_samples': '42', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 67
+Доля шума: 26156 / 117540
+Время выполнения DBSCAN: 20.148 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.34', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 49
+Доля шума: 34277 / 117540
+Время выполнения DBSCAN: 24.358 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.34', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 49
+Доля шума: 34277 / 117540
+Время выполнения DBSCAN: 30.752 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.34', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 49
+Доля шума: 34277 / 117540
+Время выполнения DBSCAN: 27.272 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.35', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 50
+Доля шума: 31797 / 117540
+Время выполнения DBSCAN: 18.73 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.38', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 54
+Доля шума: 24579 / 117540
+Время выполнения DBSCAN: 22.357 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.38', 'min_samples': '84', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 36
+Доля шума: 39588 / 117540
+Время выполнения DBSCAN: 27.01 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.38', 'min_samples': '84', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 36
+Доля шума: 39588 / 117540
+Время выполнения DBSCAN: 28.368 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.38', 'min_samples': '84', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '1'}
+Всего кластеров: 36
+Доля шума: 39588 / 117540
+Время выполнения DBSCAN: 29.431 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.35', 'min_samples': '80', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 33
+Доля шума: 46307 / 117540
+Время выполнения DBSCAN: 24.103 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.35', 'min_samples': '80', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 33
+Доля шума: 46307 / 117540
+Время выполнения DBSCAN: 24.771 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '1.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.309', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 49
+Доля шума: 15595 / 117540
+Время выполнения DBSCAN: 35.422 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '1.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.309', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 49
+Доля шума: 15595 / 117540
+Время выполнения DBSCAN: 32.072 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '1.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.309', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 49
+Доля шума: 15595 / 117540
+Время выполнения DBSCAN: 0.001 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '1.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.309', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 49
+Доля шума: 15595 / 117540
+Время выполнения DBSCAN: 0 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.35', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 50
+Доля шума: 31797 / 117540
+Время выполнения DBSCAN: 26.441 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '20.0', 'eps': '0.32', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 60
+Доля шума: 39419 / 117540
+Время выполнения DBSCAN: 17.998 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.32', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 51
+Доля шума: 32444 / 117540
+Время выполнения DBSCAN: 18.428 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.25', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 62
+Доля шума: 56663 / 117540
+Время выполнения DBSCAN: 17.46 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.25', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 62
+Доля шума: 56663 / 117540
+Время выполнения DBSCAN: 0 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.25', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 62
+Доля шума: 56663 / 117540
+Время выполнения DBSCAN: 0 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.32', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 51
+Доля шума: 32444 / 117540
+Время выполнения DBSCAN: 0 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.31', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 56
+Доля шума: 35043 / 117540
+Время выполнения DBSCAN: 23.947 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.31', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 56
+Доля шума: 35043 / 117540
+Время выполнения DBSCAN: 0 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.31', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 56
+Доля шума: 35043 / 117540
+Время выполнения DBSCAN: 0 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '5.0', 'weight_speed': '5.0', 'weight_course': '10.0', 'eps': '0.25', 'min_samples': '50', 'metric_degree': '2.0', 'hull_type': 'convex_hull', 'dataset_id': '1'}
+Всего кластеров: 62
+Доля шума: 56663 / 117540
+Время выполнения DBSCAN: 0 (секунды)
+

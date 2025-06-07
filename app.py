@@ -7,8 +7,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from DB.model import db, User, Datasets
 from Main.main import call_process_and_store_dataset, call_clustering, load_clustering_params, call_find_path, \
     load_graph_params
-
-# from functools import wraps
+from LoadData.load_data import fetch_datasets_for_user
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
@@ -21,9 +20,6 @@ with app.app_context():
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
-
-
-# ROLES = ('operator', 'drone')
 
 
 @login_manager.user_loader
@@ -102,22 +98,8 @@ def get_coordinates(coords):
 @login_required
 def get_clusters():
     parameters_for_DBSCAN = request.get_json()
-    # print(parameters_for_DBSCAN)
-
-    for key in parameters_for_DBSCAN:
-        if key != 'hull_type':
-            parameters_for_DBSCAN[key] = float(parameters_for_DBSCAN[key])
-
     clusters_data = call_clustering(parameters_for_DBSCAN)
     return jsonify(clusters_data)
-
-
-def fetch_datasets_for_user(user_id):
-    all_datasets = db.session.query(Datasets.hash_id, Datasets.dataset_name).all()
-    mine_datasets = db.session.query(Datasets.hash_id, Datasets.dataset_name).filter(Datasets.user_id == user_id).all()
-    all_list = [{'id': ds.hash_id, 'name': ds.dataset_name} for ds in all_datasets]
-    mine_list = [{'id': ds.hash_id, 'name': ds.dataset_name} for ds in mine_datasets]
-    return {'all': all_list, 'mine': mine_list}
 
 
 @app.route('/get_datasets')
@@ -141,9 +123,9 @@ def choose_dataset():
     return jsonify(success=True, message=f'Выбран датасет: {dataset.dataset_name}')
 
 
-@app.route('/upload', methods=['POST'])
+@app.route('/upload_dataset', methods=['POST'])
 @login_required
-def upload():
+def upload_dataset():
     file_positions = request.files.get('file-positions')
     file_marine = request.files.get('file-marine')
     dataset_name = request.form.get('dataset-name')

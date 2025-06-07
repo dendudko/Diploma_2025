@@ -1,41 +1,27 @@
-import os.path
+import hashlib
 
 import numpy as np
 import pandas as pd
-import hashlib
+
+from DB.model import Hashes, Datasets, PositionsCleaned, Clusters
 from app import db
-from DB.model import Hashes, Datasets, PositionsCleaned
 
 
-# pd.set_option('display.max_rows', None, 'display.max_columns', None)
-
-# data_file_name - название файла с данными за день
-# marine_file_name - название файла с данными о судах
-# clean_{file_name} - подготовленный файл с данными за день
-def load_data(data_file_name, marine_file_name, create_new_clean_xlsx=False):
-    if os.path.exists('./DB/clean/clean_' + data_file_name) and not create_new_clean_xlsx:
-        df = pd.read_excel('./DB/clean/clean_' + data_file_name)
-        return df
-    else:
-        df = pd.read_excel('./DB/dirty/' + data_file_name)
-        df_marine = pd.read_excel('./DB/dirty/' + marine_file_name)
-        df = process_data(df, df_marine, data_file_name)
-        return df
+def fetch_datasets_for_user(user_id):
+    all_datasets = db.session.query(Datasets.hash_id, Datasets.dataset_name).all()
+    mine_datasets = db.session.query(Datasets.hash_id, Datasets.dataset_name).filter(Datasets.user_id == user_id).all()
+    all_list = [{'id': ds.hash_id, 'name': ds.dataset_name} for ds in all_datasets]
+    mine_list = [{'id': ds.hash_id, 'name': ds.dataset_name} for ds in mine_datasets]
+    return {'all': all_list, 'mine': mine_list}
 
 
-def process_data(df_data, df_marine, data_file_name):
-    try:
-        df_data = df_data[['id_marine', 'lat', 'lon', 'speed', 'course']]
-        df_data = pd.merge(df_data, df_marine[['id_marine', 'port', 'length']], how='left', on='id_marine').dropna(
-            axis=0)
-        df_data = df_data.loc[(df_data['course'] != 511) & (df_data['port'] != 0) & (df_data['length'] != 0)]. \
-            reset_index(drop=True)
-        df_data = df_data[['lat', 'lon', 'speed', 'course']]
-    except KeyError:
-        pass
-    df_data = df_data.drop_duplicates().dropna(axis=0)
-    df_data.to_excel(f'./DB/clean/clean_{data_file_name}', index=False)
-    return df_data
+def load_positions_cleaned(hash_id):
+    return pd.read_sql(db.session.query(
+        PositionsCleaned.position_id,
+        PositionsCleaned.latitude.label('lat'),
+        PositionsCleaned.longitude.label('lon'),
+        PositionsCleaned.speed,
+        PositionsCleaned.course).filter_by(hash_id=hash_id).statement, db.engine)
 
 
 def read_csv_or_xlsx(file):
@@ -81,6 +67,7 @@ def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpo
     df_marine = read_csv_or_xlsx(df_marine)
     if max_gap_minutes:
         max_gap_minutes = int(max_gap_minutes)
+
     hash_value = hashlib.md5(
         (df_data.to_csv() + df_marine.to_csv() + str(interpolation) + str(max_gap_minutes)).encode('utf-8')).hexdigest()
 
@@ -150,3 +137,38 @@ def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpo
     store_dataset(df_data, dataset_name, user_id, hash_value)
 
     return True, f'Создан датасет: {dataset_name}'
+
+
+def check_clusters(*args):
+    hash_value = hashlib.md5(''.join([str(p) for p in args]).encode('utf-8')).hexdigest()
+    hash_obj = db.session.query(Hashes).filter_by(hash=hash_value).first()
+    if hash_obj is not None and hash_obj.clusters:
+        return hash_obj.hash_id, pd.read_sql(
+            db.session.query(
+                Clusters.cluster_id.label('cluster'),
+                PositionsCleaned.latitude.label('lat'),
+                PositionsCleaned.longitude.label('lon'),
+                PositionsCleaned.speed,
+                PositionsCleaned.course
+            )
+            .join(PositionsCleaned, Clusters.position_id == PositionsCleaned.position_id)
+            .filter(Clusters.hash_id == hash_obj.hash_id)
+            .statement, db.engine)
+    else:
+        return None, None
+
+
+def store_clusters(df: pd.DataFrame, *args):
+    hash_value = hashlib.md5(''.join([str(p) for p in args]).encode('utf-8')).hexdigest()
+    new_hash = Hashes(hash=hash_value, timestamp=pd.Timestamp.now())
+    db.session.add(new_hash)
+    db.session.flush()
+
+    df.insert(0, 'hash_id', new_hash.hash_id)
+    df = df[['cluster', 'hash_id', 'position_id']]
+    df = df.rename(columns={'cluster': 'cluster_id'})
+    records = df.to_dict(orient='records')
+    db.session.bulk_insert_mappings(Clusters, records)
+    db.session.commit()
+
+    return new_hash.hash_id

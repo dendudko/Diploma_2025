@@ -17,7 +17,7 @@ var map = new ol.Map({
             name: 'Ships',
             visible: true,
             source: new ol.source.ImageStatic({
-                url: '/static/images/clean/all_merged_with_points.png', // карта с кораблями
+                url: '/static/images/clean/with_points_1.png', // карта с кораблями
                 imageSize: [5983, 4143], // Размер изображения
                 projection: projection,
                 imageExtent: extent
@@ -362,6 +362,15 @@ function Do_clustering() {
         }
         parameters_for_DBSCAN[field] = value;
     });
+
+    // Получаем выбранный id датасета
+    const selectedDataset = document.querySelector('input[name="dataset_id"]:checked');
+    if (!selectedDataset) {
+        alert("Пожалуйста, выберите датасет!");
+        return;
+    }
+    parameters_for_DBSCAN['dataset_id'] = selectedDataset.value;
+
     // Если не все поля заполнены, выходим из функции
     if (!allFieldsFilled) return alert("Остались незаполненные поля: " + alert_list);
     if (!allFieldsFilled) return;
@@ -533,7 +542,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('dataset-upload-form');
         const formData = new FormData(form);
 
-        fetch('/upload', {
+        fetch('/upload_dataset', {
             method: 'POST',
             body: formData
         })

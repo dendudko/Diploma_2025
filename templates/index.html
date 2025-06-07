@@ -11,86 +11,86 @@
     <div id="loader" style="display:none;"></div>
 
     <div class="input_block">
+        {#        <details>#}
+        {#            <summary>Работа с данными</summary>#}
+
+        <!-- Загрузка и обработка данных -->
         <details>
-            <summary>Работа с данными</summary>
-
-            <!-- Загрузка и обработка данных -->
-            <details>
-                <summary>Создание датасета</summary>
-                <form id="dataset-upload-form" enctype="multipart/form-data">
-                    <div class="upload_field">
-                        <label for="file-positions">Данные о движении</label>
-                        <input type="file" id="file-positions" name="file-positions" accept=".csv,.xlsx">
-                    </div>
-                    <div class="upload_field">
-                        <label for="file-marine">Данные о судах</label>
-                        <input type="file" id="file-marine" name="file-marine" accept=".csv,.xlsx">
-                    </div>
-                    <div class="param-row">
-                        <label for="interpolation" style="font-weight: bold;">Интерполяция</label>
-                        <label class="switch">
-                            <input type="checkbox" id="interpolation" name="interpolation" checked>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="param-row">
-                        <label for="max_gap_minutes" id="max_gap_label">max_gap_minutes</label>
-                        <input type="number" step="1" min="1" value="30" id="max_gap_minutes" name="max_gap_minutes">
-                    </div>
-                    <div class="param-row">
-                        <label for="dataset-name">Название датасета</label>
-                        <input type="text" id="dataset-name" name="dataset-name">
-                    </div>
-                    <div class="buttons">
-                        <button type="button" id="upload-btn" class="red_text">Создать датасет</button>
-                    </div>
-                </form>
-                <div id="upload-error" class="dataset-message" style="color: #c82333; display:none;"></div>
-                <div id="upload-success" class="dataset-message" style="color: #28a745; display:none;"></div>
-                <div id="upload-loading" class="dataset-message" style="color: #007bff; display:none;">
-                    Загрузка...
+            <summary>Создание датасета</summary>
+            <form id="dataset-upload-form" enctype="multipart/form-data">
+                <div class="upload_field">
+                    <label for="file-positions">Данные о движении</label>
+                    <input type="file" id="file-positions" name="file-positions" accept=".csv,.xlsx">
                 </div>
-            </details>
-
-
-            <!-- Выбор датасета -->
-            <details>
-                <summary>Выбор датасета</summary>
-                <form id="dataset-form">
-                    <div class="tabs">
-                        <button type="button" class="tab-btn active" onclick="showTab('all')">Все</button>
-                        <button type="button" class="tab-btn" onclick="showTab('mine')">Мои</button>
-                    </div>
-                    <div class="tab-content" id="tab-all">
-                        {% for ds in datasets['all'] %}
-                            <div class="dataset-option">
-                                <input type="radio" id="ds-all-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
-                                <label for="ds-all-{{ ds.id }}">{{ ds.name }}</label>
-                            </div>
-                        {% endfor %}
-                        {% if not datasets['all'] %}
-                            <div>Нет доступных датасетов</div>
-                        {% endif %}
-                    </div>
-                    <div class="tab-content" id="tab-mine" style="display: none;">
-                        {% for ds in datasets['mine'] %}
-                            <div class="dataset-option">
-                                <input type="radio" id="ds-mine-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
-                                <label for="ds-mine-{{ ds.id }}">{{ ds.name }}</label>
-                            </div>
-                        {% endfor %}
-                        {% if not datasets['mine'] %}
-                            <div>У вас нет своих датасетов</div>
-                        {% endif %}
-                    </div>
-                    <div class="buttons">
-                        <button type="submit" class="red_text">Подтвердить выбор</button>
-                    </div>
-                </form>
-                <div id="dataset-error" class="dataset-message" style="color: #c82333;"></div>
-                <div id="dataset-success" class="dataset-message" style="color: #28a745;"></div>
-            </details>
+                <div class="upload_field">
+                    <label for="file-marine">Данные о судах</label>
+                    <input type="file" id="file-marine" name="file-marine" accept=".csv,.xlsx">
+                </div>
+                <div class="param-row">
+                    <label for="interpolation" style="font-weight: bold;">Интерполяция</label>
+                    <label class="switch">
+                        <input type="checkbox" id="interpolation" name="interpolation" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="param-row">
+                    <label for="max_gap_minutes" id="max_gap_label">max_gap_minutes</label>
+                    <input type="number" step="1" min="1" value="30" id="max_gap_minutes" name="max_gap_minutes">
+                </div>
+                <div class="param-row">
+                    <label for="dataset-name">Название датасета</label>
+                    <input type="text" id="dataset-name" name="dataset-name">
+                </div>
+                <div class="buttons">
+                    <button type="button" id="upload-btn" class="red_text">Создать датасет</button>
+                </div>
+            </form>
+            <div id="upload-error" class="dataset-message" style="color: #c82333; display:none;"></div>
+            <div id="upload-success" class="dataset-message" style="color: #28a745; display:none;"></div>
+            <div id="upload-loading" class="dataset-message" style="color: #007bff; display:none;">
+                Загрузка...
+            </div>
         </details>
+
+
+        <!-- Выбор датасета -->
+        <details open>
+            <summary>Выбор датасета</summary>
+            <form id="dataset-form">
+                <div class="tabs">
+                    <button type="button" class="tab-btn active" onclick="showTab('all')">Все</button>
+                    <button type="button" class="tab-btn" onclick="showTab('mine')">Мои</button>
+                </div>
+                <div class="tab-content" id="tab-all">
+                    {% for ds in datasets['all'] %}
+                        <div class="dataset-option">
+                            <input type="radio" id="ds-all-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
+                            <label for="ds-all-{{ ds.id }}">{{ ds.name }}</label>
+                        </div>
+                    {% endfor %}
+                    {% if not datasets['all'] %}
+                        <div>Нет доступных датасетов</div>
+                    {% endif %}
+                </div>
+                <div class="tab-content" id="tab-mine" style="display: none;">
+                    {% for ds in datasets['mine'] %}
+                        <div class="dataset-option">
+                            <input type="radio" id="ds-mine-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
+                            <label for="ds-mine-{{ ds.id }}">{{ ds.name }}</label>
+                        </div>
+                    {% endfor %}
+                    {% if not datasets['mine'] %}
+                        <div>У вас нет своих датасетов</div>
+                    {% endif %}
+                </div>
+                <div class="buttons">
+                    <button type="submit" class="red_text">Подтвердить выбор</button>
+                </div>
+            </form>
+            <div id="dataset-error" class="dataset-message" style="color: #c82333;"></div>
+            <div id="dataset-success" class="dataset-message" style="color: #28a745;"></div>
+        </details>
+        {#        </details>#}
         <!-- Кластеризация -->
         <details>
             <summary>Кластеризация</summary>

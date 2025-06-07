@@ -60,8 +60,8 @@ class Datasets(db.Model):
 class Clusters(db.Model):
     __tablename__ = 'clusters'
     cluster_id = db.Column(db.Integer, primary_key=True)
-    hash_id = db.Column(db.Integer, db.ForeignKey('hashes.hash_id'), nullable=False)
-    position_id = db.Column(db.Integer, db.ForeignKey('positions_cleaned.position_id'), nullable=False)
+    hash_id = db.Column(db.Integer, db.ForeignKey('hashes.hash_id'), nullable=False, primary_key=True)
+    position_id = db.Column(db.Integer, db.ForeignKey('positions_cleaned.position_id'), nullable=False, primary_key=True)
 
     hash_ref = db.relationship('Hashes', back_populates='clusters')
     position_ref = db.relationship('PositionsCleaned', back_populates='clusters')

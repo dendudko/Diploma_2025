@@ -5,8 +5,8 @@ import time
 from joblib import parallel_backend
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
-
-from LoadData.load_data import load_data, process_and_store_dataset
+import hashlib
+from LoadData.load_data import load_positions_cleaned, process_and_store_dataset, check_clusters, store_clusters
 from Map.map import MapBuilder
 
 
@@ -19,37 +19,55 @@ def call_process_and_store_dataset(file_positions, file_marine, dataset_name, us
     return process_and_store_dataset(file_positions, file_marine, dataset_name, user_id, interpolation, max_gap_minutes)
 
 
-def clustering(clustering_params, file_name='all_merged_inter', create_new_empty_map=True):
-    weight_distance = clustering_params['weight_distance']
-    weight_speed = clustering_params['weight_speed']
-    weight_course = clustering_params['weight_course']
-    eps = clustering_params['eps']
+def clustering(clustering_params, create_new_empty_map=False):
+    weight_distance = float(clustering_params['weight_distance'])
+    weight_speed = float(clustering_params['weight_speed'])
+    weight_course = float(clustering_params['weight_course'])
+    eps = float(clustering_params['eps'])
     min_samples = int(clustering_params['min_samples'])
-    metric_degree = clustering_params['metric_degree']
+    metric_degree = float(clustering_params['metric_degree'])
+    ds_hash_id = int(clustering_params['dataset_id'])
 
-    df = load_data(f'{file_name}.xlsx', 'marine.xlsx', create_new_clean_xlsx=False)
-    min_lat = df['lat'].min()
-    min_lon = df['lon'].min()
-    max_lat = df['lat'].max()
-    max_lon = df['lon'].max()
+    # df = load_data(f'{file_name}.xlsx', 'marine.xlsx', create_new_clean_xlsx=False)
 
-    dbscan_start_time = time.time()
-    # Нормализуем данные, значительно увеличивает вычислительную эффективность
-    scaler = StandardScaler()
-    X = scaler.fit_transform(df)
-    # Распараллеливаем вычисления
-    with parallel_backend('loky', n_jobs=-1):
-        # Нашел более правильную реализацию метрики, вроде работает получше и побыстрее
-        clusters = DBSCAN(eps=eps, min_samples=min_samples, metric='minkowski', p=metric_degree,
-                          metric_params={'w': [weight_distance, weight_distance,
-                                               weight_speed, weight_course]}).fit_predict(X)
-        # # Создание графика для подбора eps
-        # neighbors = NearestNeighbors(n_neighbors=min_samples, metric='minkowski', p=metric_degree,
-        #                              metric_params={'w': [weight_distance, weight_distance,
-        #                                                   weight_speed, weight_course]}).fit(X)
-        # distances, indexes = neighbors.kneighbors(X)
+    cl_hash_id, result_df = check_clusters(ds_hash_id, weight_distance, weight_speed, weight_course, eps, min_samples,
+                                           metric_degree)
+    if cl_hash_id is not None:
+        df = result_df
+        min_lat = df['lat'].min()
+        min_lon = df['lon'].min()
+        max_lat = df['lat'].max()
+        max_lon = df['lon'].max()
+        dbscan_time = 0
+    else:
+        df = load_positions_cleaned(ds_hash_id)
 
-    df['cluster'] = clusters
+        min_lat = df['lat'].min()
+        min_lon = df['lon'].min()
+        max_lat = df['lat'].max()
+        max_lon = df['lon'].max()
+
+        dbscan_start_time = time.time()
+        # Нормализуем данные, значительно увеличивает вычислительную эффективность
+        scaler = StandardScaler()
+        X = scaler.fit_transform(df[['lat', 'lon', 'speed', 'course']])
+        # Распараллеливаем вычисления
+        with parallel_backend('loky', n_jobs=-1):
+            # Нашел более правильную реализацию метрики, вроде работает получше и побыстрее
+            clusters = DBSCAN(eps=eps, min_samples=min_samples, metric='minkowski', p=metric_degree,
+                              metric_params={'w': [weight_distance, weight_distance,
+                                                   weight_speed, weight_course]}).fit_predict(X)
+            # # Создание графика для подбора eps
+            # neighbors = NearestNeighbors(n_neighbors=min_samples, metric='minkowski', p=metric_degree,
+            #                              metric_params={'w': [weight_distance, weight_distance,
+            #                                                   weight_speed, weight_course]}).fit(X)
+            # distances, indexes = neighbors.kneighbors(X)
+        dbscan_time = round(time.time() - dbscan_start_time, 3)
+
+        df['cluster'] = clusters
+
+        cl_hash_id = store_clusters(df, ds_hash_id, weight_distance, weight_speed, weight_course, eps, min_samples,
+                                    metric_degree)
 
     # # Создание графика для подбора eps
     # mean_distances = np.mean(distances, axis=1)
@@ -74,13 +92,12 @@ def clustering(clustering_params, file_name='all_merged_inter', create_new_empty
     # df2['cluster'] = [cluster + max_cluster_number if cluster != -1 else cluster for cluster in clusters]
     # df.update(df2)
 
-    dbscan_time = round(time.time() - dbscan_start_time, 3)
-
-    if (not os.path.exists('./static/images/clean/' + file_name + '_with_points.png') or
-            not os.path.exists('./static/images/clean/' + file_name + '.png')):
+    if (not os.path.exists(f'./static/images/clean/with_points_{ds_hash_id}.png') or
+            not os.path.exists(f'./static/images/clean/{ds_hash_id}.png')):
         create_new_empty_map = True
     map_builder = MapBuilder(west=min_lat, south=min_lon, east=max_lat, north=max_lon, zoom=12, df=df,
-                             file_name=f'{file_name}', create_new_empty_map=create_new_empty_map)
+                             clean_file_name=ds_hash_id, processed_file_name=cl_hash_id,
+                             create_new_empty_map=create_new_empty_map)
     map_builder.clustering_params = clustering_params
     map_builder.dbscan_time = dbscan_time
     clustered_images = map_builder.create_clustered_map()
@@ -96,19 +113,19 @@ def clustering(clustering_params, file_name='all_merged_inter', create_new_empty
 
 
 def call_clustering(clustering_params):
-    clustering_params['min_samples'] = int(clustering_params['min_samples'])
-    try:
-        with open('./Main/map_builder_dump.pickle', 'rb') as load_file:
-            map_builder_loaded = pickle.load(load_file)
+    # try:
+    #     with open('./Main/map_builder_dump.pickle', 'rb') as load_file:
+    #         map_builder_loaded = pickle.load(load_file)
+    #
+    #     if map_builder_loaded.clustering_params == clustering_params:
+    #         result = map_builder_loaded.create_clustered_map()
+    #     else:
+    #         result = clustering(clustering_params)
+    #
+    # except FileNotFoundError or EOFError:
+    #     result = clustering(clustering_params)
 
-        if map_builder_loaded.clustering_params == clustering_params:
-            result = map_builder_loaded.create_clustered_map()
-        else:
-            result = clustering(clustering_params)
-
-    except FileNotFoundError or EOFError:
-        result = clustering(clustering_params)
-
+    result = clustering(clustering_params)
     return result
 
 

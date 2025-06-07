@@ -1,20 +1,19 @@
-import io
-import urllib.request
-import random
-
-import pandas
-from cairo import ImageSurface, FORMAT_ARGB32, Context, LINE_JOIN_ROUND, LINE_CAP_ROUND, LinearGradient
-import math
-import mercantile
-import shapely
-import numpy as np
-
-from shapely.ops import nearest_points
-import networkx
-import mpu
-
 import concurrent.futures
+import io
+import math
+import random
 import time
+import urllib.request
+
+import mercantile
+import mpu
+import networkx
+import numpy as np
+import pandas
+import shapely
+from cairo import ImageSurface, FORMAT_ARGB32, Context, LINE_JOIN_ROUND, LINE_CAP_ROUND, LinearGradient
+from flask import Response
+from shapely.ops import nearest_points
 
 
 def generate_colors(num_colors):
@@ -97,7 +96,7 @@ def load_tile(tile, min_x, min_y, tile_size, headers):
 
 
 class MapBuilder:
-    def __init__(self, west, south, east, north, zoom, df, file_name, create_new_empty_map=False, save_count=-1):
+    def __init__(self, west, south, east, north, zoom, df, clean_file_name, processed_file_name, create_new_empty_map=False, save_count=-1):
         # Задаваемые параметры
         self.west = west
         self.south = south
@@ -105,7 +104,8 @@ class MapBuilder:
         self.north = north
         self.zoom = zoom
         self.df = df
-        self.file_name = file_name
+        self.clean_file_name = clean_file_name
+        self.processed_file_name = processed_file_name
         self.create_new_empty_map = create_new_empty_map
         self.save_mode = save_count
 
@@ -320,11 +320,15 @@ class MapBuilder:
             self.context.stroke()
 
     def save_clustered_image(self):
-        file_path = f'./static/images/clustered/clustered_{self.file_name}_{str(self.save_mode)}_{str(time.time_ns())}.png'
+        file_path = f'./static/images/clustered/{str(self.save_mode)}_{self.processed_file_name}.png'
         with open(file_path, 'wb') as f:
             self.map_image.write_to_png(f)
         f.close()
         return file_path
+        # png_io = io.BytesIO()
+        # self.map_image.write_to_png(png_io)
+        # png_io.seek(0)
+        # return Response(png_io.getvalue(), mimetype='image/png')
 
     def create_empty_map(self):
         if self.create_new_empty_map:
@@ -394,7 +398,7 @@ class MapBuilder:
             ctx.paint()
             self.map_image = map_image_clipped
         else:
-            self.map_image = ImageSurface.create_from_png(f'./static/images/clean/{self.file_name}.png')
+            self.map_image = ImageSurface.create_from_png(f'./static/images/clean/{self.clean_file_name}.png')
 
         # рассчитываем координаты углов в веб-меркаторе
         self.left_top = tuple(mercantile.xy(self.west, self.north))
@@ -406,7 +410,7 @@ class MapBuilder:
 
         # Сохраняем результат
         if self.create_new_empty_map:
-            with open(f'./static/images/clean/{self.file_name}.png', 'wb') as f:
+            with open(f'./static/images/clean/{self.clean_file_name}.png', 'wb') as f:
                 self.map_image.write_to_png(f)
                 f.close()
 
@@ -428,10 +432,10 @@ class MapBuilder:
                 context.line_to(row[0] + line_length * math.cos(angle), row[1] + line_length * math.sin(angle))
                 context.stroke()
             # Сохраняем результат
-            with open(f'./static/images/clean/{self.file_name}_with_points.png', 'wb') as f:
+            with open(f'./static/images/clean/with_points_{self.clean_file_name}.png', 'wb') as f:
                 self.map_image.write_to_png(f)
 
-            self.map_image = ImageSurface.create_from_png(f'./static/images/clean/{self.file_name}.png')
+            self.map_image = ImageSurface.create_from_png(f'./static/images/clean/{self.clean_file_name}.png')
             self.context = Context(self.map_image)
             self.create_new_empty_map = False
 
