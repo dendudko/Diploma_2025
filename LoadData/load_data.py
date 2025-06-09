@@ -15,15 +15,6 @@ def fetch_datasets_for_user(user_id):
     return {'all': all_list, 'mine': mine_list}
 
 
-def load_positions_cleaned(hash_id):
-    return pd.read_sql(db.session.query(
-        PositionsCleaned.position_id,
-        PositionsCleaned.latitude.label('lat'),
-        PositionsCleaned.longitude.label('lon'),
-        PositionsCleaned.speed,
-        PositionsCleaned.course).filter_by(hash_id=hash_id).statement, db.engine)
-
-
 def read_csv_or_xlsx(file):
     df = None
     if file.filename.endswith('.csv'):
@@ -137,6 +128,15 @@ def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpo
     store_dataset(df_data, dataset_name, user_id, hash_value)
 
     return True, f'Создан датасет: {dataset_name}'
+
+
+def load_positions_cleaned(hash_id):
+    return pd.read_sql(db.session.query(
+        PositionsCleaned.position_id,
+        PositionsCleaned.latitude.label('lat'),
+        PositionsCleaned.longitude.label('lon'),
+        PositionsCleaned.speed,
+        PositionsCleaned.course).filter_by(hash_id=hash_id).statement, db.engine)
 
 
 def check_clusters(*args):

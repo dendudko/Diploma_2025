@@ -39,6 +39,7 @@ def clustering(clustering_params, create_new_empty_map=False):
         max_lat = df['lat'].max()
         max_lon = df['lon'].max()
         dbscan_time = 0
+
     else:
         df = load_positions_cleaned(ds_hash_id)
 
@@ -68,6 +69,7 @@ def clustering(clustering_params, create_new_empty_map=False):
 
         cl_hash_id = store_clusters(df, ds_hash_id, weight_distance, weight_speed, weight_course, eps, min_samples,
                                     metric_degree)
+        df = df.drop('position_id', axis=1)
 
     # # Создание графика для подбора eps
     # mean_distances = np.mean(distances, axis=1)

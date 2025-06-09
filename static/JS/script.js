@@ -14,11 +14,12 @@ var map = new ol.Map({
     target: 'map', // ID элемента на странице, где отобразить карту
     layers: [
         new ol.layer.Image({
-            name: 'Ships',
+            name: 'Background',
             visible: true,
+            opacity: 0.2,
             source: new ol.source.ImageStatic({
-                url: '/static/images/clean/with_points_1.png', // карта с кораблями
-                imageSize: [5983, 4143], // Размер изображения
+                url: '/static/images/bg/background.png', // карта с кораблями
+                imageSize: [1986, 1322], // Размер изображения
                 projection: projection,
                 imageExtent: extent
             })

@@ -96,7 +96,8 @@ def load_tile(tile, min_x, min_y, tile_size, headers):
 
 
 class MapBuilder:
-    def __init__(self, west, south, east, north, zoom, df, clean_file_name, processed_file_name, create_new_empty_map=False, save_count=-1):
+    def __init__(self, west, south, east, north, zoom, df, clean_file_name, processed_file_name,
+                 create_new_empty_map=False, save_count=-1):
         # Задаваемые параметры
         self.west = west
         self.south = south
@@ -320,7 +321,8 @@ class MapBuilder:
             self.context.stroke()
 
     def save_clustered_image(self):
-        file_path = f'./static/images/clustered/{str(self.save_mode)}_{self.processed_file_name}.png'
+        file_path = (f'./static/images/clustered/'
+                     f'{str(self.save_mode)}_{self.processed_file_name}_{str(time.time_ns())}.png')
         with open(file_path, 'wb') as f:
             self.map_image.write_to_png(f)
         f.close()
