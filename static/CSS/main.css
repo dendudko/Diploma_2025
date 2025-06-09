@@ -388,8 +388,8 @@ summary {
 
 .switch {
     position: relative;
-    width: 46px;
-    height: 24px;
+    width: 40px;
+    height: 22px;
     margin-left: 10px;
     flex: none !important;
     display: inline-block !important;
@@ -416,8 +416,8 @@ summary {
 .slider:before {
     position: absolute;
     content: "";
-    height: 20px;
-    width: 20px;
+    height: 18px;
+    width: 18px;
     left: 2px;
     bottom: 2px;
     background-color: white;
@@ -430,7 +430,7 @@ input:checked + .slider {
 }
 
 input:checked + .slider:before {
-    transform: translateX(22px);
+    transform: translateX(18px);
 }
 
 .param-row .disabled-label {
@@ -442,4 +442,51 @@ input:checked + .slider:before {
     background: #f3f3f3;
     color: #b0b0b0;
     border-color: #e0e0e0;
+}
+
+.coord-input-wrapper {
+    flex: 1 1 56%;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.coord-input-wrapper input {
+    flex: 1 1 auto;
+    width: 100%;
+    margin-right: 6px;
+}
+
+.coord-input-wrapper button {
+    flex-shrink: 0;
+    width: 27px;
+    height: 27px;
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.coord-input-wrapper button:hover {
+    background-color: #e9ecef;
+    border-color: #007bff;
+}
+
+.coord-input-wrapper button:active {
+    background-color: #dee2e6;
+}
+
+.tab-content {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.tab-content::-webkit-scrollbar {
+    width: 0;
 }

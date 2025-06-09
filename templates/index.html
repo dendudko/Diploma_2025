@@ -145,7 +145,11 @@
             <summary>Планирование маршрута</summary>
             <div class="param-row">
                 <label for="points_inside">points_inside</label>
-                <input type="checkbox" id="points_inside" {% if graph_params['points_inside'] %} checked {% endif %}>
+                <label class="switch">
+                    <input type="checkbox" id="points_inside" name="points_inside"
+                            {% if graph_params['points_inside'] %} checked {% endif %}>
+                    <span class="slider round"></span>
+                </label>
             </div>
             <div class="param-row">
                 <label for="distance_delta">distance_delta</label>
@@ -183,18 +187,24 @@
             </div>
             <div class="param-row">
                 <label for="start_coords">start_coords</label>
-                <input type="text" readonly placeholder="Выбрать на карте" id="start_coords" style="cursor:pointer;">
+                <div class="coord-input-wrapper">
+                    <input type="text" placeholder="lat, lon" id="start_coords">
+                    <button class="map-picker-btn" id="pick-start-btn" title="Выбрать начальную точку на карте">🎯
+                    </button>
+                </div>
             </div>
             <div class="param-row">
                 <label for="end_coords">end_coords</label>
-                <input type="text" readonly placeholder="Выбрать на карте" id="end_coords" style="cursor:pointer;">
+                <div class="coord-input-wrapper">
+                    <input type="text" placeholder="lat, lon" id="end_coords">
+                    <button class="map-picker-btn" id="pick-end-btn" title="Выбрать конечную точку на карте">🎯</button>
+                </div>
             </div>
             <div class="buttons">
                 <button id="do_graph" class="red_text" onclick="Create_graph()">Построить граф и спланировать маршрут
                 </button>
             </div>
         </details>
-        {#        <button class="logout-button">Logout</button>#}
         <button class="logout-button">
             <div class="icon"></div>
             <div class="text">Выйти</div>
