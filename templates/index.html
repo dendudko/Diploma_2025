@@ -19,12 +19,26 @@
             <summary>Создание датасета</summary>
             <form id="dataset-upload-form" enctype="multipart/form-data">
                 <div class="upload_field">
-                    <label for="file-positions">Данные о движении</label>
-                    <input type="file" id="file-positions" name="file-positions" accept=".csv,.xlsx">
+                    <p class="upload-title">Данные о движении</p>
+                    <!-- Скрытый инпут -->
+                    <input type="file" id="file-positions" name="file-positions" accept=".csv,.xlsx"
+                           class="file-input-hidden">
+                    <!-- Видимая кастомная кнопка -->
+                    <label for="file-positions" class="file-upload-label">
+                        <span class="file-upload-button">Выберите файл</span>
+                        <span class="file-name">Файл не выбран</span>
+                    </label>
                 </div>
                 <div class="upload_field">
-                    <label for="file-marine">Данные о судах</label>
-                    <input type="file" id="file-marine" name="file-marine" accept=".csv,.xlsx">
+                    <p class="upload-title">Данные о судах</p>
+                    <!-- Скрытый инпут -->
+                    <input type="file" id="file-marine" name="file-marine" accept=".csv,.xlsx"
+                           class="file-input-hidden">
+                    <!-- Видимая кастомная кнопка -->
+                    <label for="file-marine" class="file-upload-label">
+                        <span class="file-upload-button">Выберите файл</span>
+                        <span class="file-name">Файл не выбран</span>
+                    </label>
                 </div>
                 <div class="param-row">
                     <label for="interpolation" style="font-weight: bold;">Интерполяция</label>
@@ -61,29 +75,32 @@
                     <button type="button" class="tab-btn active" onclick="showTab('all')">Все</button>
                     <button type="button" class="tab-btn" onclick="showTab('mine')">Мои</button>
                 </div>
+
+                <!-- Вкладка "Все" с новой, правильной структурой -->
                 <div class="tab-content" id="tab-all">
                     {% for ds in datasets['all'] %}
                         <div class="dataset-option">
-                            <input type="radio" id="ds-all-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
-                            <label for="ds-all-{{ ds.id }}">{{ ds.name }}</label>
+                            <div class="dataset-info">
+                                <input type="radio" id="ds-all-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
+                                <label for="ds-all-{{ ds.id }}">{{ ds.name }}</label>
+                            </div>
                         </div>
                     {% endfor %}
                     {% if not datasets['all'] %}
                         <div>Нет доступных датасетов</div>
                     {% endif %}
                 </div>
+
+                <!-- Вкладка "Мои" с новой, правильной структурой -->
                 <div class="tab-content" id="tab-mine" style="display: none;">
                     {% for ds in datasets['mine'] %}
                         <div class="dataset-option">
-                            <!-- Контейнер для radio и label, чтобы они оставались слева -->
                             <div class="dataset-info">
                                 <input type="radio" id="ds-mine-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
                                 <label for="ds-mine-{{ ds.id }}">{{ ds.name }}</label>
                             </div>
-                            <!-- Кнопка удаления справа -->
                             <button type="button" class="delete-dataset-btn" data-dataset-id="{{ ds.id }}"
-                                    title="Удалить датасет">
-                                &#10060; <!-- Это HTML-код для иконки "крестик" ❌ -->
+                                    title="Удалить датасет">&#10060;
                             </button>
                         </div>
                     {% endfor %}

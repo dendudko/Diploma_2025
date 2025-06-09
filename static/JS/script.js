@@ -395,18 +395,38 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     let selectedDatasetId = document.querySelector('input[name="dataset_id"]:checked')?.value || null;
+
+    /**
+     * Принудительно синхронизирует UI (класс .selected) с текущим состоянием (selectedDatasetId).
+     */
+    const highlightSelectedDataset = () => {
+        document.querySelectorAll('.dataset-option').forEach(opt => {
+            const input = opt.querySelector('input[name="dataset_id"]');
+            if (input) {
+                const isSelected = input.value === selectedDatasetId;
+                opt.classList.toggle('selected', isSelected);
+                if (isSelected) {
+                    input.checked = true;
+                }
+            }
+        });
+    };
+
+    /**
+     * Привязывает обработчики к radio-кнопкам.
+     */
     const attachDatasetHandlers = () => {
         document.querySelectorAll('input[name="dataset_id"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 selectedDatasetId = radio.value;
-                document.querySelectorAll('.dataset-option').forEach(opt => {
-                    const input = opt.querySelector('input[name="dataset_id"]');
-                    opt.classList.toggle('selected', input?.value === selectedDatasetId);
-                });
+                highlightSelectedDataset();
             });
         });
     };
 
+    /**
+     * Обновляет список датасетов с сервера, генерируя УНИФИЦИРОВАННЫЙ HTML.
+     */
     const updateDatasetList = () => {
         fetch('/get_datasets')
             .then(res => res.json())
@@ -417,38 +437,40 @@ document.addEventListener('DOMContentLoaded', function () {
                         return;
                     }
                     container.innerHTML = datasets.map(ds => {
-                        const isSelected = selectedDatasetId == ds.id;
-                        if (container.id === 'tab-mine') {
-                            return `
-                                <div class="dataset-option${isSelected ? ' selected' : ''}">
-                                    <div class="dataset-info">
-                                        <input type="radio" id="ds-mine-${ds.id}" name="dataset_id" value="${ds.id}" ${isSelected ? 'checked' : ''}>
-                                        <label for="ds-mine-${ds.id}">${ds.name}</label>
-                                    </div>
-                                    <button type="button" class="delete-dataset-btn" data-dataset-id="${ds.id}" title="Удалить датасет">&#10060;</button>
-                                </div>`;
-                        } else {
-                            return `
-                                <div class="dataset-option${isSelected ? ' selected' : ''}">
-                                    <div class="dataset-info">
-                                        <input type="radio" id="ds-all-${ds.id}" name="dataset_id" value="${ds.id}" ${isSelected ? 'checked' : ''}>
-                                        <label for="ds-all-${ds.id}">${ds.name}</label>
-                                    </div>
-                                </div>`;
-                        }
+                        const deleteButtonHtml = (container.id === 'tab-mine')
+                            ? `<button type="button" class="delete-dataset-btn" data-dataset-id="${ds.id}" title="Удалить датасет">&#10060;</button>`
+                            : '';
+
+                        return `
+                            <div class="dataset-option">
+                                <div class="dataset-info">
+                                    <input type="radio" id="ds-${container.id}-${ds.id}" name="dataset_id" value="${ds.id}">
+                                    <label for="ds-${container.id}-${ds.id}">${ds.name}</label>
+                                </div>
+                                ${deleteButtonHtml}
+                            </div>`;
                     }).join('');
                 };
+
                 renderList(document.getElementById('tab-all'), data.all);
                 renderList(document.getElementById('tab-mine'), data.mine);
+
                 attachDatasetHandlers();
+                highlightSelectedDataset();
             });
     };
 
+    /**
+     * Переключает видимость вкладок.
+     */
     window.showTab = (tab) => {
         document.getElementById('tab-all').style.display = tab === 'all' ? '' : 'none';
         document.getElementById('tab-mine').style.display = tab === 'mine' ? '' : 'none';
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tab-btn[onclick*="'${tab}'"]`).classList.add('active');
+
+        // Принудительно обновляем подсветку при смене вкладки
+        highlightSelectedDataset();
     };
 
     const datasetForm = document.getElementById('dataset-form');
@@ -486,6 +508,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     attachDatasetHandlers();
+    highlightSelectedDataset();
     showTab('all');
 
     document.body.addEventListener('click', function (event) {
@@ -532,5 +555,24 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
             }
         }
+    });
+
+    document.querySelectorAll('.file-input-hidden').forEach(function (input) {
+        const label = input.nextElementSibling;
+        const buttonSpan = label.querySelector('.file-upload-button');
+        const fileNameSpan = label.querySelector('.file-name');
+        const originalButtonText = buttonSpan.textContent;
+
+        input.addEventListener('change', function (event) {
+            if (event.target.files.length > 0) {
+                fileNameSpan.textContent = event.target.files[0].name;
+                buttonSpan.textContent = 'Файл выбран';
+                label.classList.add('file-chosen');
+            } else {
+                fileNameSpan.textContent = 'Файл не выбран';
+                buttonSpan.textContent = originalButtonText;
+                label.classList.remove('file-chosen');
+            }
+        });
     });
 });
