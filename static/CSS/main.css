@@ -340,10 +340,23 @@ summary {
     color: #007bff;
 }
 
+
+/* --- Стили для опций датасетов (модифицировано) --- */
 .dataset-option {
     width: 100%;
     margin-bottom: 4px;
     position: relative;
+    /* ИЗМЕНЕНО: Превращаем в flex-контейнер для выравнивания элементов */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px; /* Добавляем небольшой отступ между названием и кнопкой */
+}
+
+/* НОВЫЙ КЛАСС: обертка для input и label, чтобы они занимали все место слева */
+.dataset-info {
+    flex-grow: 1; /* Занимает все доступное пространство */
+    position: relative; /* Необходимо для позиционирования скрытого radio */
 }
 
 .dataset-option input[type="radio"] {
@@ -380,6 +393,27 @@ summary {
     border-color: #b3d3ff;
 }
 
+
+/* --- НОВЫЕ СТИЛИ: для кнопки удаления --- */
+.delete-dataset-btn {
+    flex-shrink: 0; /* Запрещаем кнопке сжиматься */
+    background: none;
+    border: none;
+    padding: 0 5px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #999;
+    transition: color 0.2s, transform 0.2s;
+    line-height: 1; /* Для лучшего вертикального выравнивания иконки */
+}
+
+.delete-dataset-btn:hover {
+    color: #c82333; /* Красный цвет при наведении */
+    font-size: 18px;
+}
+
+
+/* --- Стили для сообщений (без изменений) --- */
 .dataset-message {
     margin-top: 8px;
     display: none;

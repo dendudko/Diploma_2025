@@ -137,9 +137,7 @@ backgroundImage.onload = function () {
         function updateMarker(type, pixelCoord) {
             const layerName = type === 'start' ? 'StartPoint' : 'EndPoint';
             const iconSrc = type === 'start' ? '/static/images/markers/start_point.png' : '/static/images/markers/end_point.png';
-
             map.getLayers().getArray().filter(l => l.get('name') === layerName).forEach(l => map.removeLayer(l));
-
             const pointLayer = new ol.layer.Vector({
                 name: layerName,
                 source: new ol.source.Vector({features: [new ol.Feature({geometry: new ol.geom.Point(pixelCoord)})]}),
@@ -161,10 +159,8 @@ backgroundImage.onload = function () {
             const inputType = event.target.id === 'start_coords' ? 'start' : 'end';
             const parts = event.target.value.replace(/,/g, ' ').split(/\s+/).filter(Boolean);
             if (parts.length !== 2) return;
-
             const lat = parseFloat(parts[0]);
             const lon = parseFloat(parts[1]);
-
             if (!isNaN(lat) && !isNaN(lon)) {
                 const pixelCoord = geoToPixel(lon, lat);
                 updateMarker(inputType, pixelCoord);
@@ -177,19 +173,16 @@ backgroundImage.onload = function () {
         map.on('click', function (evt) {
             const hasDataLayers = map.getLayers().getArray().some(l => ['Polygons', 'Graph'].includes(l.get('name')) && l.getVisible());
             if (!pickingFor) return;
-
             if (!hasDataLayers) {
                 alert("Координаты можно указывать только после кластеризации данных.");
                 pickingFor = null;
                 map.getViewport().style.cursor = 'auto';
                 return;
             }
-
             const pixelCoordinate = evt.coordinate;
             const mercatorCoordinate = pixelToMercator(pixelCoordinate);
-            const geoCoordinate = ol.proj.toLonLat(mercatorCoordinate); // [lon, lat]
+            const geoCoordinate = ol.proj.toLonLat(mercatorCoordinate);
             const coordsString = `${geoCoordinate[1].toFixed(6)}, ${geoCoordinate[0].toFixed(6)}`;
-
             if (pickingFor === 'start') {
                 startPointInput.value = coordsString;
                 updateMarker('start', pixelCoordinate);
@@ -210,17 +203,14 @@ backgroundImage.onload = function () {
             document.getElementById('do_cluster').style.cssText = 'box-shadow: 0px 0px 3px 3px #91B44AB2;';
             return alert("Сначала необходимо кластеризовать данные");
         }
-
         const fields = ['distance_delta', 'weight_func_degree', 'angle_of_vision', 'weight_time_graph', 'weight_course_graph', 'search_algorithm', 'start_coords', 'end_coords'];
         const parameters = {'points_inside': $('#points_inside').is(':checked')};
         fields.forEach(id => {
             parameters[id] = document.getElementById(id).value;
         });
         const emptyFields = fields.filter(id => !parameters[id]);
-
         if (emptyFields.length > 0) return alert("Остались незаполненные поля: " + emptyFields.join(', '));
         if (parameters['start_coords'] === parameters['end_coords']) return alert("Упс! Начальная точка совпадает с конечной.");
-
         $("#loader").show();
         try {
             const data = await $.ajax({
@@ -229,7 +219,6 @@ backgroundImage.onload = function () {
                 contentType: 'application/json',
                 data: JSON.stringify(parameters)
             });
-
             map.getLayers().getArray().filter(l => l.get('name') === 'Graph').forEach(l => map.removeLayer(l));
             const graphLayer = await createImageLayer({
                 name: 'Graph',
@@ -238,13 +227,8 @@ backgroundImage.onload = function () {
                 imageExtent: pixelExtent
             });
             map.addLayer(graphLayer);
-
-            // <<< НОВОЕ: Скрываем фоновый слой
             const backgroundLayer = map.getLayers().getArray().find(l => l.get('name') === 'Background');
-            if (backgroundLayer) {
-                backgroundLayer.setVisible(false);
-            }
-
+            if (backgroundLayer) backgroundLayer.setVisible(false);
             ['StartPoint', 'EndPoint'].forEach(name => {
                 const layer = map.getLayers().getArray().find(l => l.get('name') === name);
                 if (layer) {
@@ -252,14 +236,11 @@ backgroundImage.onload = function () {
                     map.addLayer(layer);
                 }
             });
-
             map.getLayers().getArray().filter(l => ["Clusters", "Polygons", "Ships"].includes(l.get('name'))).forEach(l => l.setVisible(false));
-
             legendElement.innerHTML = '';
             const item = document.createElement('div');
             const graph_data = data[1];
-            item.innerHTML = 'Error' in graph_data ? `<br><strong>${graph_data['Error']}</strong><br>` :
-                Object.entries(graph_data).map(([key, value]) => `<br><strong>${key}</strong>: ${value}`).join('');
+            item.innerHTML = 'Error' in graph_data ? `<br><strong>${graph_data['Error']}</strong><br>` : Object.entries(graph_data).map(([key, value]) => `<br><strong>${key}</strong>: ${value}`).join('');
             legendElement.appendChild(item);
         } catch (error) {
             alert(`Ошибка при построении графа: ${error.statusText || 'Проверьте консоль'}`);
@@ -277,12 +258,10 @@ backgroundImage.onload = function () {
             parameters[id] = document.getElementById(id).value;
         });
         const emptyFields = fields.filter(id => !parameters[id]);
-
         const selectedDataset = document.querySelector('input[name="dataset_id"]:checked');
         if (!selectedDataset) return alert("Пожалуйста, выберите датасет!");
         parameters['dataset_id'] = selectedDataset.value;
         if (emptyFields.length > 0) return alert("Остались незаполненные поля: " + emptyFields.join(', '));
-
         $("#loader").show();
         try {
             const data = await $.ajax({
@@ -291,7 +270,6 @@ backgroundImage.onload = function () {
                 contentType: 'application/json',
                 data: JSON.stringify(parameters)
             });
-
             const [clustersLayer, polygonsLayer] = await Promise.all([
                 createImageLayer({
                     name: 'Clusters',
@@ -308,20 +286,13 @@ backgroundImage.onload = function () {
                     imageExtent: pixelExtent
                 })
             ]);
-
             map.getLayers().getArray().filter(l => ["Clusters", "Polygons", "Graph", "StartPoint", "EndPoint", "Ships"].includes(l.get('name'))).forEach(l => map.removeLayer(l));
             map.addLayer(clustersLayer);
             map.addLayer(polygonsLayer);
-
-            // <<< НОВОЕ: Скрываем фоновый слой
             const backgroundLayer = map.getLayers().getArray().find(l => l.get('name') === 'Background');
-            if (backgroundLayer) {
-                backgroundLayer.setVisible(false);
-            }
-
+            if (backgroundLayer) backgroundLayer.setVisible(false);
             document.getElementById("start_coords").value = "";
             document.getElementById("end_coords").value = "";
-
             legendElement.innerHTML = '';
             const item = document.createElement('div');
             item.innerHTML = Object.entries(data[1]).map(([key, value]) => `<strong>${key}</strong>: ${value}<br>`).join('');
@@ -391,7 +362,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 successEl = document.getElementById('upload-success'),
                 loadingEl = document.getElementById('upload-loading');
             [errorEl, successEl, loadingEl].forEach(el => el.style.display = 'none');
-
             if (!document.getElementById('dataset-name').value.trim()) {
                 errorEl.textContent = 'Поле "Название датасета" обязательно для заполнения!';
                 return errorEl.style.display = 'block';
@@ -400,7 +370,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 errorEl.textContent = 'Пожалуйста, выберите оба файла!';
                 return errorEl.style.display = 'block';
             }
-
             loadingEl.style.display = 'block';
             const formData = new FormData(document.getElementById('dataset-upload-form'));
             fetch('/upload_dataset', {method: 'POST', body: formData})
@@ -443,14 +412,31 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(res => res.json())
             .then(data => {
                 const renderList = (container, datasets) => {
-                    container.innerHTML = datasets.length === 0 ? `<div>${container.id === 'tab-all' ? 'Нет доступных датасетов' : 'У вас нет своих датасетов'}</div>` :
-                        datasets.map(ds => {
-                            const isSelected = selectedDatasetId == ds.id;
-                            return `<div class="dataset-option${isSelected ? ' selected' : ''}">
-                                        <input type="radio" id="ds-${container.id}-${ds.id}" name="dataset_id" value="${ds.id}" ${isSelected ? 'checked' : ''}>
-                                        <label for="ds-${container.id}-${ds.id}">${ds.name}</label>
-                                    </div>`;
-                        }).join('');
+                    if (datasets.length === 0) {
+                        container.innerHTML = `<div>${container.id === 'tab-all' ? 'Нет доступных датасетов' : 'У вас нет своих датасетов'}</div>`;
+                        return;
+                    }
+                    container.innerHTML = datasets.map(ds => {
+                        const isSelected = selectedDatasetId == ds.id;
+                        if (container.id === 'tab-mine') {
+                            return `
+                                <div class="dataset-option${isSelected ? ' selected' : ''}">
+                                    <div class="dataset-info">
+                                        <input type="radio" id="ds-mine-${ds.id}" name="dataset_id" value="${ds.id}" ${isSelected ? 'checked' : ''}>
+                                        <label for="ds-mine-${ds.id}">${ds.name}</label>
+                                    </div>
+                                    <button type="button" class="delete-dataset-btn" data-dataset-id="${ds.id}" title="Удалить датасет">&#10060;</button>
+                                </div>`;
+                        } else {
+                            return `
+                                <div class="dataset-option${isSelected ? ' selected' : ''}">
+                                    <div class="dataset-info">
+                                        <input type="radio" id="ds-all-${ds.id}" name="dataset_id" value="${ds.id}" ${isSelected ? 'checked' : ''}>
+                                        <label for="ds-all-${ds.id}">${ds.name}</label>
+                                    </div>
+                                </div>`;
+                        }
+                    }).join('');
                 };
                 renderList(document.getElementById('tab-all'), data.all);
                 renderList(document.getElementById('tab-mine'), data.mine);
@@ -501,4 +487,50 @@ document.addEventListener('DOMContentLoaded', function () {
 
     attachDatasetHandlers();
     showTab('all');
+
+    document.body.addEventListener('click', function (event) {
+        if (event.target.matches('.delete-dataset-btn')) {
+            event.preventDefault();
+            const button = event.target;
+            const datasetId = button.dataset.datasetId;
+            const datasetOptionDiv = button.closest('.dataset-option');
+            const datasetName = datasetOptionDiv.querySelector('label').textContent;
+
+            if (confirm(`Вы уверены, что хотите удалить датасет "${datasetName}"? Это действие необратимо.`)) {
+
+                const loadingEl = document.getElementById('dataset-loading');
+                const errorEl = document.getElementById('dataset-error');
+                const successEl = document.getElementById('dataset-success');
+
+                errorEl.style.display = 'none';
+                successEl.style.display = 'none';
+                loadingEl.style.display = 'block';
+
+                fetch('/delete_dataset', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                    body: JSON.stringify({id: datasetId})
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            successEl.textContent = data.message || 'Датасет успешно удален.';
+                            successEl.style.display = 'block';
+                            updateDatasetList();
+                        } else {
+                            errorEl.textContent = data.message || 'Не удалось удалить датасет.';
+                            errorEl.style.display = 'block';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при удалении датасета:', error);
+                        errorEl.textContent = 'Ошибка соединения с сервером.';
+                        errorEl.style.display = 'block';
+                    })
+                    .finally(() => {
+                        loadingEl.style.display = 'none';
+                    });
+            }
+        }
+    });
 });

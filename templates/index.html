@@ -75,8 +75,16 @@
                 <div class="tab-content" id="tab-mine" style="display: none;">
                     {% for ds in datasets['mine'] %}
                         <div class="dataset-option">
-                            <input type="radio" id="ds-mine-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
-                            <label for="ds-mine-{{ ds.id }}">{{ ds.name }}</label>
+                            <!-- Контейнер для radio и label, чтобы они оставались слева -->
+                            <div class="dataset-info">
+                                <input type="radio" id="ds-mine-{{ ds.id }}" name="dataset_id" value="{{ ds.id }}">
+                                <label for="ds-mine-{{ ds.id }}">{{ ds.name }}</label>
+                            </div>
+                            <!-- Кнопка удаления справа -->
+                            <button type="button" class="delete-dataset-btn" data-dataset-id="{{ ds.id }}"
+                                    title="Удалить датасет">
+                                &#10060; <!-- Это HTML-код для иконки "крестик" ❌ -->
+                            </button>
                         </div>
                     {% endfor %}
                     {% if not datasets['mine'] %}
@@ -89,8 +97,10 @@
             </form>
             <div id="dataset-error" class="dataset-message" style="color: #c82333;"></div>
             <div id="dataset-success" class="dataset-message" style="color: #28a745;"></div>
+            <div id="dataset-loading" class="dataset-message" style="display: none; color: #007bff;">Загрузка...</div>
         </details>
         {#        </details>#}
+
         <!-- Кластеризация -->
         <details>
             <summary>Кластеризация</summary>

@@ -28,10 +28,12 @@ def clustering(clustering_params, create_new_empty_map=False):
     metric_degree = float(clustering_params['metric_degree'])
     ds_hash_id = int(clustering_params['dataset_id'])
 
-    # df = load_data(f'{file_name}.xlsx', 'marine.xlsx', create_new_clean_xlsx=False)
+    clustering_params_for_hashing = {
+        key: value for key, value in clustering_params.items() if key != 'hull_type'
+    }
 
-    cl_hash_id, result_df = check_clusters(ds_hash_id, weight_distance, weight_speed, weight_course, eps, min_samples,
-                                           metric_degree)
+    cl_hash_id, result_df = check_clusters(clustering_params_for_hashing)
+
     if cl_hash_id is not None:
         df = result_df
         min_lat = df['lat'].min()
@@ -67,8 +69,7 @@ def clustering(clustering_params, create_new_empty_map=False):
 
         df['cluster'] = clusters
 
-        cl_hash_id = store_clusters(df, ds_hash_id, weight_distance, weight_speed, weight_course, eps, min_samples,
-                                    metric_degree)
+        cl_hash_id = store_clusters(df, clustering_params_for_hashing)
         df = df.drop('position_id', axis=1)
 
     # # Создание графика для подбора eps

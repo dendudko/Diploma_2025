@@ -3,11 +3,21 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask import jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 from DB.model import db, User, Datasets
+from LoadData.load_data import fetch_datasets_for_user, delete_dataset_by_id
 from Main.main import call_process_and_store_dataset, call_clustering, load_clustering_params, call_find_path, \
     load_graph_params
-from LoadData.load_data import fetch_datasets_for_user
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
@@ -116,7 +126,7 @@ def choose_dataset():
     if not dataset_id:
         return jsonify(success=False, message='Датасет не выбран!')
 
-    dataset = Datasets.query.filter_by(hash_id=dataset_id).first()
+    dataset = Datasets.query.filter_by(id=dataset_id).first()
     if not dataset:
         return jsonify(success=False, message='Датасет с таким id не найден!')
 
@@ -143,6 +153,18 @@ def upload_dataset():
                                                       interpolation,
                                                       max_gap_minutes)
 
+    return jsonify(success=success, message=message)
+
+
+@app.route('/delete_dataset', methods=['POST'])
+@login_required
+def delete_dataset():
+    data = request.get_json()
+    if not data or 'id' not in data:
+        return jsonify(success=False, message='Неверный запрос: ID датасета отсутствует.')
+    dataset_id_to_delete = data['id']
+    current_user_id = current_user.id
+    success, message = delete_dataset_by_id(dataset_id_to_delete, current_user_id)
     return jsonify(success=success, message=message)
 
 
