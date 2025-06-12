@@ -133,8 +133,8 @@ class ClPolygons(db.Model):
     polygon_point_id = db.Column(db.Integer, primary_key=True)
     hash_id = db.Column(db.Integer, nullable=False)
     cluster_num = db.Column(db.Integer, nullable=False)
-    boundary_latitude = db.Column(db.Float, nullable=False)
-    boundary_longitude = db.Column(db.Float, nullable=False)
+    boundary_x = db.Column(db.Float, nullable=False)
+    boundary_y = db.Column(db.Float, nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(['hash_id', 'cluster_num'], ['clusters.hash_id', 'clusters.cluster_num'],

@@ -14,6 +14,7 @@ import shapely
 from cairo import ImageSurface, FORMAT_ARGB32, Context, LINE_JOIN_ROUND, LINE_CAP_ROUND, LinearGradient
 from flask import Response
 from shapely.ops import nearest_points
+from DataMovements.data_movements import load_avg_values, load_polygons, store_polygons
 
 
 def generate_colors(num_colors):
@@ -96,7 +97,7 @@ def load_tile(tile, min_x, min_y, tile_size, headers):
 
 
 class MapBuilder:
-    def __init__(self, west, south, east, north, zoom, df, clean_file_name, processed_file_name,
+    def __init__(self, west, south, east, north, zoom, df, clean_file_name, processed_file_name, cl_hash_id,
                  create_new_empty_map=False, save_count=-1):
         # Задаваемые параметры
         self.west = west
@@ -121,13 +122,12 @@ class MapBuilder:
         self.context = None
 
         self.df_points_on_image = pandas.DataFrame(columns=['x', 'y', 'speed', 'course', 'cluster'])
-        self.polygons = {}
         self.polygon_bounds = {}
         self.polygon_buffers = {}
         self.intersections = {}
         self.intersection_bounds = {}
         self.intersection_points = []
-        self.average_directions = {}
+        self.average_courses = {}
         self.average_speeds = {}
 
         try:
@@ -141,6 +141,7 @@ class MapBuilder:
         self.graph = networkx.DiGraph()
 
         self.dbscan_time = None
+        self.cl_hash_id = cl_hash_id
 
     def delete_noise(self):
         # Удаление шума, спорное решение
@@ -187,13 +188,14 @@ class MapBuilder:
             self.context.stroke()
 
     def show_polygons(self):
-        # Создаем и добавляем полигоны
-        if len(self.polygons) == 0 or len(self.polygon_bounds) == 0:
+        self.polygon_bounds = load_polygons(self.cl_hash_id)
+        if not self.polygon_bounds:
+            polygons = {}
             for i in range(self.cluster_count):
-                self.polygons[i] = self.df_points_on_image.where(self.df_points_on_image['cluster'] == i).dropna(
+                polygons[i] = self.df_points_on_image.where(self.df_points_on_image['cluster'] == i).dropna(
                     how='any')
                 polygon_geom = shapely.Polygon(
-                    zip(self.polygons[i]['x'].values.tolist(), self.polygons[i]['y'].values.tolist()))
+                    zip(polygons[i]['x'].values.tolist(), polygons[i]['y'].values.tolist()))
 
                 polygon_geom2 = None
                 if self.clustering_params['hull_type'] == 'convex_hull':
@@ -206,6 +208,15 @@ class MapBuilder:
                     a, b = polygon_geom2.exterior.coords.xy
                     self.polygon_bounds[i] = tuple(list(zip(a, b)))
                     self.polygon_buffers[i] = shapely.Polygon(self.polygon_bounds[i]).buffer(1e-9)
+
+            store_polygons(self.polygon_bounds, self.cl_hash_id)
+
+        else:
+            for i in range(self.cluster_count):
+                try:
+                    self.polygon_buffers[i] = shapely.Polygon(self.polygon_bounds[i]).buffer(1e-9)
+                except KeyError:
+                    pass
 
         for key, polygon_bound in self.polygon_bounds.items():
             red = self.colors[key][0]
@@ -286,19 +297,19 @@ class MapBuilder:
             self.context.set_source_rgba(0, 255, 255, 1)
             self.context.stroke()
 
-    def show_average_directions(self):
-        if len(self.average_directions) == 0 or len(self.average_speeds) == 0:
-            for i in range(self.cluster_count):
-                self.average_directions[i] = np.mean(self.df_points_on_image['course'].where(
-                    self.df_points_on_image['cluster'] == i).dropna(how='any').values)
-                self.average_speeds[i] = np.mean(self.df_points_on_image['speed'].where(
-                    self.df_points_on_image['cluster'] == i).dropna(how='any').values)
+    def show_average_values(self):
+        avg_values = load_avg_values(self.cl_hash_id)
+        self.average_courses = {}
+        self.average_speeds = {}
+        for cluster_num, average_course, average_speed in avg_values:
+            self.average_courses[cluster_num] = average_course
+            self.average_speeds[cluster_num] = average_speed
 
         for key, polygon_bound in self.polygon_bounds.items():
             center = shapely.centroid(shapely.Polygon(polygon_bound))
 
             arrow_length = self.average_speeds[key]
-            arrow_angle = math.radians(self.average_directions[key] - 90)
+            arrow_angle = math.radians(self.average_courses[key] - 90)
             arrowhead_angle = math.pi / 12
             arrowhead_length = 30
 
@@ -468,7 +479,7 @@ class MapBuilder:
         interesting_points = 0
         for key in self.polygon_bounds.keys():
             if shapely.intersects(self.polygon_buffers[key], current_point):
-                available_directions[key] = self.average_directions[key]
+                available_directions[key] = self.average_courses[key]
 
         angles = {point: (math.atan2(point.y - current_point.y, point.x - current_point.x)
                           + 2 * math.pi) % (math.pi * 2) for point in self.intersection_points}
@@ -737,7 +748,7 @@ class MapBuilder:
             elif save_mode == 'polygons':
                 self.show_polygons()
                 self.show_intersections()
-                self.show_average_directions()
+                self.show_average_values()
             self.save_mode = save_mode
             clusters_img.append(self.save_clustered_image())
 
@@ -763,7 +774,7 @@ class MapBuilder:
         self.create_empty_map_with_points()
         self.show_polygons()
         self.show_intersections()
-        self.show_average_directions()
+        self.show_average_values()
         # Если delta большая - работает достаточно быстро
         if create_new_graph:
             self.intersection_points = []

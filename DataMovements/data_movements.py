@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
-from DB.model import db, Hashes, Datasets, PositionsCleaned, Clusters, ClusterMembers, DatasetAnalysisLink
+from DB.model import db, Hashes, Datasets, PositionsCleaned, Clusters, ClusterMembers, DatasetAnalysisLink, \
+    ClAverageValues, ClPolygons
 
 
 def fetch_datasets_for_user(user_id):
@@ -69,7 +70,8 @@ def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpo
     try:
         df_data = read_csv_or_xlsx(df_data)
         df_marine = read_csv_or_xlsx(df_marine)
-        if not {'id_marine', 'lat', 'lon', 'speed', 'course', 'date_add', 'age'}.issubset(set(df_data.columns.tolist())):
+        if not {'id_marine', 'lat', 'lon', 'speed', 'course', 'date_add', 'age'}.issubset(
+                set(df_data.columns.tolist())):
             raise Exception('проверяйте формат файла с данными о движении.')
         if not {'id_marine', 'port', 'length'}.issubset(set(df_marine.columns.tolist())):
             raise Exception('проверяйте формат файла с данными о судах.')
@@ -209,6 +211,49 @@ def check_clusters(clustering_params: dict):
         return None, None
 
 
+def store_avg_values(df: pd.DataFrame, hash_id: int):
+    avg_speeds = {}
+    avg_courses = {}
+
+    cluster_count = max(df['cluster']) + 1
+    for cluster in range(cluster_count):
+        cluster_data = df[df['cluster'] == cluster]
+        speeds = cluster_data['speed'].dropna()
+        courses = cluster_data['course'].dropna()
+
+        avg_speed = speeds.mean() if not speeds.empty else None
+
+        # Средний курс с учетом цикличности
+        if not courses.empty:
+            sin_vals = np.sin(np.deg2rad(courses))
+            cos_vals = np.cos(np.deg2rad(courses))
+            avg_angle = np.rad2deg(np.arctan2(sin_vals.mean(), cos_vals.mean())) % 360
+        else:
+            avg_angle = None
+
+        avg_speeds[cluster] = avg_speed
+        avg_courses[cluster] = avg_angle
+
+    records = []
+    for cluster_num in avg_speeds.keys():
+        records.append({
+            'hash_id': hash_id,
+            'cluster_num': int(cluster_num),
+            'average_speed': avg_speeds[cluster_num],
+            'average_course': avg_courses[cluster_num]
+        })
+
+    if records:
+        db.session.bulk_insert_mappings(ClAverageValues, records)
+        db.session.commit()
+
+
+def load_avg_values(cl_hash_id):
+    return (db.session.query(ClAverageValues.cluster_num, ClAverageValues.average_course, ClAverageValues.average_speed)
+            .filter(ClAverageValues.hash_id == cl_hash_id)
+            .all())
+
+
 def store_clusters(df_results: pd.DataFrame, clustering_params: dict):
     """
     Сохраняет результаты кластеризации и создает связь с исходным датасетом.
@@ -247,8 +292,31 @@ def store_clusters(df_results: pd.DataFrame, clustering_params: dict):
     return new_hash.hash_id
 
 
-# --- Функции для удаления ---
+def store_polygons(polygon_bounds: dict, cl_hash_id: int):
+    records = []
+    for cluster_num, bounds in polygon_bounds.items():
+        for x, y in bounds:
+            records.append({
+                'hash_id': cl_hash_id,
+                'cluster_num': int(cluster_num),
+                'boundary_x': x,
+                'boundary_y': y
+            })
+    if records:
+        db.session.bulk_insert_mappings(ClPolygons, records)
+        db.session.commit()
 
+
+def load_polygons(cl_hash_id: int):
+    polygons = {}
+    # Получаем все точки для каждого кластера, отсортированные по порядку вставки
+    rows = db.session.query(ClPolygons).filter_by(hash_id=cl_hash_id).all()
+    for row in rows:
+        polygons.setdefault(row.cluster_num, []).append((row.boundary_x, row.boundary_y))
+    return polygons
+
+
+# --- Функции для удаления ---
 def delete_dataset_by_id(dataset_id, current_user_id):
     """
     Удаляет датасет, все связанные с ним АНАЛИЗЫ и исходные данные.

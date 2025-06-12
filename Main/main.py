@@ -6,7 +6,7 @@ from joblib import parallel_backend
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 import hashlib
-from LoadData.load_data import load_positions_cleaned, process_and_store_dataset, check_clusters, store_clusters
+from DataMovements.data_movements import load_positions_cleaned, process_and_store_dataset, check_clusters, store_clusters, store_avg_values
 from Map.map import MapBuilder
 
 
@@ -70,6 +70,7 @@ def clustering(clustering_params, create_new_empty_map=False):
         df['cluster'] = clusters
 
         cl_hash_id = store_clusters(df, clustering_params_for_hashing)
+        store_avg_values(df[['cluster', 'speed', 'course']], cl_hash_id)
         df = df.drop('position_id', axis=1)
 
     # # Создание графика для подбора eps
@@ -100,7 +101,7 @@ def clustering(clustering_params, create_new_empty_map=False):
         create_new_empty_map = True
     map_builder = MapBuilder(west=min_lat, south=min_lon, east=max_lat, north=max_lon, zoom=12, df=df,
                              clean_file_name=ds_hash_id, processed_file_name=cl_hash_id,
-                             create_new_empty_map=create_new_empty_map)
+                             create_new_empty_map=create_new_empty_map, cl_hash_id=cl_hash_id)
     map_builder.clustering_params = clustering_params
     map_builder.dbscan_time = dbscan_time
     clustered_images = map_builder.create_clustered_map()

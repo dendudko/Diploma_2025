@@ -1,4 +1,5 @@
 import os
+import time
 
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask import jsonify
@@ -7,7 +8,7 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from DB.model import db, User, Datasets
-from LoadData.load_data import fetch_datasets_for_user, delete_dataset_by_id
+from DataMovements.data_movements import fetch_datasets_for_user, delete_dataset_by_id
 from Main.main import call_process_and_store_dataset, call_clustering, load_clustering_params, call_find_path, \
     load_graph_params
 
@@ -107,8 +108,10 @@ def get_coordinates(coords):
 @app.route('/post_clustering_parameters', methods=['POST'])
 @login_required
 def get_clusters():
+    start = time.time()
     parameters_for_DBSCAN = request.get_json()
     clusters_data = call_clustering(parameters_for_DBSCAN)
+    print('Общее время прогона кластеризации с отрисовкой:', round(time.time() - start, 2), 'сек.')
     return jsonify(clusters_data)
 
 
