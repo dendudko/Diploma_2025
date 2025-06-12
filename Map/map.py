@@ -212,11 +212,8 @@ class MapBuilder:
             store_polygons(self.polygon_bounds, self.cl_hash_id)
 
         else:
-            for i in range(self.cluster_count):
-                try:
-                    self.polygon_buffers[i] = shapely.Polygon(self.polygon_bounds[i]).buffer(1e-9)
-                except KeyError:
-                    pass
+            for cluster, bounds in self.polygon_bounds.items():
+                self.polygon_buffers[cluster] = shapely.Polygon(bounds).buffer(1e-9)
 
         for key, polygon_bound in self.polygon_bounds.items():
             red = self.colors[key][0]

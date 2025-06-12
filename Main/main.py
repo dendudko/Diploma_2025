@@ -2,11 +2,13 @@ import os
 import pickle
 import time
 
+import numpy as np
 from joblib import parallel_backend
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
-import hashlib
-from DataMovements.data_movements import load_positions_cleaned, process_and_store_dataset, check_clusters, store_clusters, store_avg_values
+
+from DataMovements.data_movements import load_positions_cleaned, process_and_store_dataset, check_clusters, \
+    store_clusters, store_avg_values
 from Map.map import MapBuilder
 
 
@@ -45,6 +47,9 @@ def clustering(clustering_params, create_new_empty_map=False):
     else:
         df = load_positions_cleaned(ds_hash_id)
 
+        df['sin_course'] = np.sin(np.deg2rad(df['course']))
+        df['cos_course'] = np.cos(np.deg2rad(df['course']))
+
         min_lat = df['lat'].min()
         min_lon = df['lon'].min()
         max_lat = df['lat'].max()
@@ -53,13 +58,18 @@ def clustering(clustering_params, create_new_empty_map=False):
         dbscan_start_time = time.time()
         # Нормализуем данные, значительно увеличивает вычислительную эффективность
         scaler = StandardScaler()
-        X = scaler.fit_transform(df[['lat', 'lon', 'speed', 'course']])
-        # Распараллеливаем вычисления
+        X = scaler.fit_transform(df[['lat', 'lon', 'speed', 'sin_course', 'cos_course']])  # Распараллеливаем вычисления
+        weights = [
+            weight_distance / (2 ** (1 / metric_degree)),
+            weight_distance / (2 ** (1 / metric_degree)),
+            weight_speed,
+            weight_course / (2 ** (1 / metric_degree)),
+            weight_course / (2 ** (1 / metric_degree))
+        ]
         with parallel_backend('loky', n_jobs=-1):
             # Нашел более правильную реализацию метрики, вроде работает получше и побыстрее
             clusters = DBSCAN(eps=eps, min_samples=min_samples, metric='minkowski', p=metric_degree,
-                              metric_params={'w': [weight_distance, weight_distance,
-                                                   weight_speed, weight_course]}).fit_predict(X)
+                              metric_params={'w': weights}).fit_predict(X)
             # # Создание графика для подбора eps
             # neighbors = NearestNeighbors(n_neighbors=min_samples, metric='minkowski', p=metric_degree,
             #                              metric_params={'w': [weight_distance, weight_distance,
