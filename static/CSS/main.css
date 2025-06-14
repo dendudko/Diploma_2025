@@ -71,7 +71,7 @@ body {
 /* Левая панель с параметрами */
 .input_block {
     width: 420px;
-    padding: 5px 10px 5px 5px;
+    padding: 10px 10px 5px 5px;
     background: #fff;
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
@@ -81,8 +81,8 @@ body {
 
 /* Оформление блоков с details */
 details {
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    border: 1px solid #dcdcdc;
     border-radius: 5px;
     background: #fafafa;
     padding: 10px;
@@ -241,16 +241,78 @@ summary {
     width: 0;
 }
 
-.upload_field {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 4px 0;
-    font-size: 0.9em;
+/* 1. Скрываем настоящий, некрасивый input[type="file"] */
+.file-input-hidden {
+    display: none;
 }
 
-.upload_field input[type="file"] {
-    width: 100%;
-    margin-top: 4px;
+/* 2. Заголовок над полем загрузки */
+.upload-title {
+    font-weight: 500;
+    margin-bottom: 6px;
+    font-size: 0.9em;
+    color: black;
+}
+
+/* 3. Основной контейнер-обертка */
+.file-upload-label {
+    display: flex;
+    align-items: center;
+    border: 1px solid #cfd8dc;
+    border-radius: 6px;
+    padding: 0;
+    cursor: pointer;
+    background-color: #fff;
+    transition: border-color 0.2s, background-color 0.2s;
+    overflow: hidden;
+}
+
+/* Эффект при наведении, как у .dataset-option label:hover */
+.file-upload-label:hover {
+    border-color: #b3d3ff;
+}
+
+/* 4. Стилизуем часть, которая выглядит как кнопка */
+.file-upload-button {
+    background-color: #fff; /* По умолчанию совпадает с фоном */
+    border-right: 1px solid #cfd8dc;
+    padding: 6px 10px;
+    font-size: 0.9em;
+    color: black;
+    white-space: nowrap;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+/* Эффект при наведении на кнопку */
+.file-upload-label:hover .file-upload-button {
+    background-color: #edf3ff; /* Как у .dataset-option label:hover */
+}
+
+/* 5. Место для отображения имени файла */
+.file-name {
+    padding: 0 10px;
+    font-size: 0.9em;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1;
+}
+
+/* 6. НОВЫЙ СТИЛЬ: Когда файл выбран, применяем стили "активного" элемента */
+.file-upload-label.file-chosen {
+    border-color: #007bff; /* Ярко-синяя рамка, как у выбранного датасета */
+}
+
+.file-upload-label.file-chosen .file-upload-button {
+    background-color: #e3f0ff; /* Светло-голубой фон, как у выбранного датасета */
+    color: #007bff; /* Ярко-синий текст */
+    border-color: #007bff;
+}
+
+.file-upload-label.file-chosen .file-name {
+    color: black; /* Делаем текст имени файла темнее, чтобы он не выглядел как placeholder */
+    font-weight: 500;
 }
 
 .logout-button {
@@ -340,9 +402,18 @@ summary {
     color: #007bff;
 }
 
+/* --- Стили для опций датасетов (модифицировано) --- */
 .dataset-option {
     width: 100%;
     margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.dataset-info {
+    flex-grow: 1;
     position: relative;
 }
 
@@ -353,7 +424,7 @@ summary {
     height: 0;
 }
 
-.dataset-option label {
+.dataset-option .dataset-info label {
     display: block;
     width: 100%;
     padding: 6px 8px;
@@ -361,27 +432,152 @@ summary {
     border: 1px solid #cfd8dc;
     border-radius: 6px;
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
     font-size: 0.9em;
     box-sizing: border-box;
     user-select: none;
 }
 
-.dataset-option.selected label,
-.dataset-option input[type="radio"]:checked + label {
+/* Стиль для ВЫБРАННОГО элемента */
+.dataset-option.selected .dataset-info label {
     background: #e3f0ff;
     border-color: #007bff;
     color: #007bff;
-    font-weight: 600;
+    font-size: 0.95em;
 }
 
-.dataset-option label:hover {
+/* Стиль для НАВЕДЕНИЯ на НЕВЫБРАННЫЙ элемент */
+.dataset-option:not(.selected) .dataset-info:hover label {
     background: #edf3ff;
     border-color: #b3d3ff;
 }
 
+/* --- НОВЫЕ СТИЛИ: для кнопки удаления --- */
+.delete-dataset-btn {
+    flex-shrink: 0; /* Запрещаем кнопке сжиматься */
+    background: none;
+    border: none;
+    padding: 0 5px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #999;
+    transition: color 0.2s, transform 0.2s;
+    line-height: 1; /* Для лучшего вертикального выравнивания иконки */
+}
+
+.delete-dataset-btn:hover {
+    color: #c82333; /* Красный цвет при наведении */
+    font-size: 18px;
+}
+
+
+/* --- Стили для сообщений (без изменений) --- */
 .dataset-message {
     margin-top: 8px;
     display: none;
     font-size: 0.9em;
+}
+
+.switch {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    margin-left: 10px;
+    flex: none !important;
+    display: inline-block !important;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .2s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #007bff;
+}
+
+input:checked + .slider:before {
+    transform: translateX(18px);
+}
+
+.param-row .disabled-label {
+    color: #b0b0b0;
+    transition: color 0.2s;
+}
+
+.param-row input:disabled {
+    background: #f3f3f3;
+    color: #b0b0b0;
+    border-color: #e0e0e0;
+}
+
+.coord-input-wrapper {
+    flex: 1 1 56%;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.coord-input-wrapper input {
+    flex: 1 1 auto;
+    width: 100%;
+    margin-right: 6px;
+}
+
+.coord-input-wrapper button {
+    flex-shrink: 0;
+    width: 27px;
+    height: 27px;
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.coord-input-wrapper button:hover {
+    background-color: #e9ecef;
+    border-color: #007bff;
+}
+
+.coord-input-wrapper button:active {
+    background-color: #dee2e6;
+}
+
+.tab-content {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.tab-content::-webkit-scrollbar {
+    width: 0;
 }
