@@ -1,13 +1,12 @@
 import os
 import time
 
-from flask import Flask, render_template, request, redirect, url_for, flash
-from flask import jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
-from DB.model import db, User, Datasets
+from DataMovements.model import db, User, Datasets
 from DataMovements.data_movements import fetch_datasets_for_user, delete_dataset_by_id
 from Main.main import call_process_and_store_dataset, call_clustering, load_clustering_params, call_find_path, \
     load_graph_params
@@ -77,40 +76,44 @@ def logout():
     return redirect(url_for('login'))
 
 
+def get_coordinates(coords):
+    lat, long = coords.split(',')
+    return lat, long
+
+
 @app.route('/post_graphs_parameters', methods=['POST'])
 @login_required
 def get_graph():
     parameters_for_graph = request.get_json()
 
     start_long, start_lat = get_coordinates(parameters_for_graph['start_coords'])
-    end_long, end_lat = get_coordinates(parameters_for_graph['end_coords'])
-    coords = dict(start_lat=start_lat, start_long=start_long, end_lat=end_lat, end_long=end_long)
+    end_lon, end_lat = get_coordinates(parameters_for_graph['end_coords'])
+    coords = dict(start_lat=start_lat, start_lon=start_long, end_lat=end_lat, end_lon=end_lon)
     del parameters_for_graph['start_coords']
     del parameters_for_graph['end_coords']
 
     for key in parameters_for_graph:
-        if key != 'search_algorithm' and key != 'points_inside':
+        if key not in ('search_algorithm', 'points_inside', 'dataset_id'):
             parameters_for_graph[key] = float(parameters_for_graph[key])
 
     for key in coords:
         coords[key] = float(coords[key])
 
-    # print(parameters_for_graph, coords)
-    graph_data = call_find_path(parameters_for_graph, coords)
+    cl_hash_id = session.get('cl_hash_id')
+    if not cl_hash_id:
+        return jsonify({"error": "Сначала необходимо выполнить кластеризацию."}), 400
+
+    graph_data = call_find_path(parameters_for_graph, load_clustering_params(), coords, cl_hash_id)
     return jsonify(graph_data)
-
-
-def get_coordinates(coords):
-    lat, long = coords.split(',')
-    return lat, long
 
 
 @app.route('/post_clustering_parameters', methods=['POST'])
 @login_required
 def get_clusters():
     start = time.time()
-    parameters_for_DBSCAN = request.get_json()
-    clusters_data = call_clustering(parameters_for_DBSCAN)
+    parameters_for_clustering = request.get_json()
+    clusters_data = call_clustering(parameters_for_clustering)
+    session['cl_hash_id'] = clusters_data[3]
     print('Общее время прогона кластеризации с отрисовкой:', round(time.time() - start, 2), 'сек.')
     return jsonify(clusters_data)
 

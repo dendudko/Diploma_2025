@@ -34,7 +34,8 @@ function createImageLayer(options) {
  */
 
 const backgroundImageUrl = '/static/images/bg/background.png';
-const geographicExtent = [15522946.393668033, 5002641.018067474, 15751596.627757415, 5160979.444049783];
+// const geographicExtent = [15522946.393668033, 5002641.018067474, 15751596.627757415, 5160979.444049783];
+let geographicExtent = [15538419.802888298, 5003643.068442375, 15751596.627757415, 5160889.56738335];
 const backgroundImage = new Image();
 
 backgroundImage.onload = function () {
@@ -211,6 +212,9 @@ backgroundImage.onload = function () {
         const emptyFields = fields.filter(id => !parameters[id]);
         if (emptyFields.length > 0) return alert("Остались незаполненные поля: " + emptyFields.join(', '));
         if (parameters['start_coords'] === parameters['end_coords']) return alert("Упс! Начальная точка совпадает с конечной.");
+        const selectedDataset = document.querySelector('input[name="dataset_id"]:checked');
+        if (!selectedDataset) return alert("Пожалуйста, выберите датасет!");
+        parameters['dataset_id'] = selectedDataset.value;
         $("#loader").show();
         try {
             const data = await $.ajax({
@@ -219,6 +223,7 @@ backgroundImage.onload = function () {
                 contentType: 'application/json',
                 data: JSON.stringify(parameters)
             });
+            geographicExtent = data[2];
             map.getLayers().getArray().filter(l => l.get('name') === 'Graph').forEach(l => map.removeLayer(l));
             const graphLayer = await createImageLayer({
                 name: 'Graph',
@@ -240,10 +245,11 @@ backgroundImage.onload = function () {
             legendElement.innerHTML = '';
             const item = document.createElement('div');
             const graph_data = data[1];
-            item.innerHTML = 'Error' in graph_data ? `<br><strong>${graph_data['Error']}</strong><br>` : Object.entries(graph_data).map(([key, value]) => `<br><strong>${key}</strong>: ${value}`).join('');
+            item.innerHTML = 'Error' in graph_data ? `<strong>${graph_data['Error']}</strong><br>` : Object.entries(graph_data).map(([key, value]) => `<strong>${key}</strong>: ${value}<br>`).join('');
             legendElement.appendChild(item);
         } catch (error) {
-            alert(`Ошибка при построении графа: ${error.statusText || 'Проверьте консоль'}`);
+            const errorMessage = error.responseJSON?.error || error.statusText || "Неизвестная ошибка";
+            alert(`Ошибка: ${errorMessage}`);
         } finally {
             $("#loader").hide();
         }
@@ -270,6 +276,7 @@ backgroundImage.onload = function () {
                 contentType: 'application/json',
                 data: JSON.stringify(parameters)
             });
+            geographicExtent = data[2];
             const [clustersLayer, polygonsLayer] = await Promise.all([
                 createImageLayer({
                     name: 'Clusters',

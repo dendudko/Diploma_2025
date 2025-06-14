@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
-from DB.model import db, Hashes, Datasets, PositionsCleaned, Clusters, ClusterMembers, DatasetAnalysisLink, \
+from DataMovements.model import db, Hashes, Datasets, PositionsCleaned, Clusters, ClusterMembers, DatasetAnalysisLink, \
     ClAverageValues, ClPolygons
 
 
@@ -30,6 +30,11 @@ def read_csv_or_xlsx(file):
     elif file.filename.endswith('.xlsx'):
         return pd.read_excel(file)
     raise ValueError("Неподдерживаемый формат файла. Пожалуйста, используйте .csv или .xlsx")
+
+
+def get_hash_value(hash_id):
+    hash_obj = db.session.query(Hashes).filter_by(hash_id=hash_id).first()
+    return hash_obj.hash_value
 
 
 def integrity_check(hash_value, dataset_name):
@@ -180,6 +185,23 @@ def load_positions_cleaned(dataset_id):
     )
 
 
+def load_clusters(cl_hash_id):
+    return cl_hash_id, pd.read_sql(
+        db.session.query(
+            Clusters.cluster_num.label('cluster'),
+            PositionsCleaned.latitude.label('lat'),
+            PositionsCleaned.longitude.label('lon'),
+            PositionsCleaned.speed,
+            PositionsCleaned.course
+        )
+        .join(ClusterMembers,
+              (Clusters.hash_id == ClusterMembers.hash_id) &
+              (Clusters.cluster_num == ClusterMembers.cluster_num))
+        .join(PositionsCleaned, ClusterMembers.position_id == PositionsCleaned.position_id)
+        .filter(Clusters.hash_id == cl_hash_id)
+        .statement, db.engine)
+
+
 def check_clusters(clustering_params: dict):
     """
     Проверяет, существует ли уже результат кластеризации с заданными параметрами,
@@ -193,20 +215,7 @@ def check_clusters(clustering_params: dict):
 
     if hash_obj:
         print(f"Найден существующий результат кластеризации с hash_id: {hash_obj.hash_id}")
-        return hash_obj.hash_id, pd.read_sql(
-            db.session.query(
-                Clusters.cluster_num.label('cluster'),
-                PositionsCleaned.latitude.label('lat'),
-                PositionsCleaned.longitude.label('lon'),
-                PositionsCleaned.speed,
-                PositionsCleaned.course
-            )
-            .join(ClusterMembers,
-                  (Clusters.hash_id == ClusterMembers.hash_id) &
-                  (Clusters.cluster_num == ClusterMembers.cluster_num))
-            .join(PositionsCleaned, ClusterMembers.position_id == PositionsCleaned.position_id)
-            .filter(Clusters.hash_id == hash_obj.hash_id)
-            .statement, db.engine)
+        return load_clusters(hash_obj.hash_id)
     else:
         return None, None
 
@@ -292,27 +301,27 @@ def store_clusters(df_results: pd.DataFrame, clustering_params: dict):
     return new_hash.hash_id
 
 
-def store_polygons(polygon_bounds: dict, cl_hash_id: int):
+def store_polygon_geoms(polygon_geoms: dict, cl_hash_id: int):
     records = []
-    for cluster_num, bounds in polygon_bounds.items():
+    for cluster_num, bounds in polygon_geoms.items():
         for x, y in bounds:
             records.append({
                 'hash_id': cl_hash_id,
                 'cluster_num': int(cluster_num),
-                'boundary_x': x,
-                'boundary_y': y
+                'x': x,
+                'y': y
             })
     if records:
         db.session.bulk_insert_mappings(ClPolygons, records)
         db.session.commit()
 
 
-def load_polygons(cl_hash_id: int):
+def load_polygon_geoms(cl_hash_id: int):
     polygons = {}
     # Получаем все точки для каждого кластера, отсортированные по порядку вставки
     rows = db.session.query(ClPolygons).filter_by(hash_id=cl_hash_id).all()
     for row in rows:
-        polygons.setdefault(row.cluster_num, []).append((row.boundary_x, row.boundary_y))
+        polygons.setdefault(row.cluster_num, []).append((row.x, row.y))
     return polygons
 
 
