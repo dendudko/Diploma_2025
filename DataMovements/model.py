@@ -33,6 +33,7 @@ class Hashes(db.Model):
     positions = db.relationship('PositionsCleaned', back_populates='source_hash', cascade="all, delete-orphan",
                                 passive_deletes=True)
     clusters = db.relationship('Clusters', back_populates='hash', cascade="all, delete-orphan", passive_deletes=True)
+    graphs = db.relationship('Graphs', back_populates='hash', cascade="all, delete-orphan", passive_deletes=True)
 
     # ИЗМЕНЕНО: Связь с таблицей-ассоциацией
     source_of_datasets = db.relationship('Datasets', back_populates='source_hash', cascade="all, delete-orphan",
@@ -48,6 +49,11 @@ class Datasets(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     source_hash_id = db.Column(db.Integer, db.ForeignKey('hashes.hash_id', ondelete='CASCADE'), nullable=False)
 
+    extent_min_x = db.Column(db.Float, nullable=True)
+    extent_min_y = db.Column(db.Float, nullable=True)
+    extent_max_x = db.Column(db.Float, nullable=True)
+    extent_max_y = db.Column(db.Float, nullable=True)
+
     user = db.relationship('User', back_populates='datasets')
     source_hash = db.relationship('Hashes', back_populates='source_of_datasets', foreign_keys=[source_hash_id])
 
@@ -56,7 +62,6 @@ class Datasets(db.Model):
                                      passive_deletes=True)
 
 
-# --- НОВЫЙ КЛАСС ДЛЯ ТАБЛИЦЫ-СВЯЗКИ ---
 class DatasetAnalysisLink(db.Model):
     __tablename__ = 'dataset_analysis_link'
     dataset_id = db.Column(db.Integer, db.ForeignKey('datasets.id', ondelete='CASCADE'), primary_key=True)
@@ -64,6 +69,8 @@ class DatasetAnalysisLink(db.Model):
 
     dataset = db.relationship('Datasets', back_populates='analysis_links')
     analysis_hash = db.relationship('Hashes', back_populates='analysis_links')
+    graphs = db.relationship('Graphs', back_populates='dataset_analysis_link', cascade="all, delete-orphan",
+                             passive_deletes=True)
 
 
 class PositionsCleaned(db.Model):
@@ -92,7 +99,6 @@ class Clusters(db.Model):
                                  cascade="all, delete-orphan", passive_deletes=True)
     polygons = db.relationship('ClPolygons', back_populates='cluster', cascade="all, delete-orphan",
                                passive_deletes=True)
-    graphs = db.relationship('Graphs', back_populates='cluster', cascade="all, delete-orphan", passive_deletes=True)
 
 
 # --- "СОСТАВ КЛАСТЕРА": Таблица-связка между позициями и кластерами ---
@@ -145,20 +151,21 @@ class ClPolygons(db.Model):
 class Graphs(db.Model):
     __tablename__ = 'graphs'
     graph_id = db.Column(db.Integer, primary_key=True)
-    hash_id = db.Column(db.Integer, nullable=False)
-    cluster_num = db.Column(db.Integer, nullable=False)
+    hash_id = db.Column(db.Integer, db.ForeignKey('hashes.hash_id', ondelete='CASCADE'))
+    dataset_id = db.Column(db.Integer, nullable=False)
+    analysis_hash_id = db.Column(db.Integer, nullable=False)
 
-    __table_args__ = (
-        ForeignKeyConstraint(['hash_id', 'cluster_num'], ['clusters.hash_id', 'clusters.cluster_num'],
-                             ondelete='CASCADE'),)
-    cluster = db.relationship('Clusters', back_populates='graphs')
-
+    __table_args__ = (ForeignKeyConstraint(
+        ['dataset_id', 'analysis_hash_id'],
+        ['dataset_analysis_link.dataset_id', 'dataset_analysis_link.analysis_hash_id'],
+        ondelete='CASCADE'),)
+    hash = db.relationship('Hashes', back_populates='clusters')
+    dataset_analysis_link = db.relationship('DatasetAnalysisLink', back_populates='graphs')
     vertexes = db.relationship('GraphVertexes', back_populates='graph', cascade="all, delete-orphan",
                                passive_deletes=True)
     edges = db.relationship('GraphEdges', back_populates='graph', cascade="all, delete-orphan", passive_deletes=True)
 
 
-# Модели графа остаются почти без изменений, их связи с Graphs корректны
 class GraphVertexes(db.Model):
     __tablename__ = 'graph_vertexes'
     vertex_id = db.Column(db.Integer, primary_key=True)
@@ -180,7 +187,11 @@ class GraphEdges(db.Model):
     start_vertex_id = db.Column(db.Integer, db.ForeignKey('graph_vertexes.vertex_id', ondelete='CASCADE'),
                                 nullable=False)
     end_vertex_id = db.Column(db.Integer, db.ForeignKey('graph_vertexes.vertex_id', ondelete='CASCADE'), nullable=False)
+    distance = db.Column(db.Float)
+    speed = db.Column(db.Float)
     weight = db.Column(db.Float)
+    color = db.Column(db.String)
+    angle_deviation = db.Column(db.Float)
     graph_id = db.Column(db.Integer, db.ForeignKey('graphs.graph_id', ondelete='CASCADE'), nullable=False)
 
     start_vertex = db.relationship('GraphVertexes', foreign_keys=[start_vertex_id], back_populates='edges_start')

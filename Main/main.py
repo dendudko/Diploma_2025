@@ -11,8 +11,8 @@ def call_clustering(clustering_params):
     return clustering(clustering_params)
 
 
-def call_find_path(graph_params, clustering_params, coords, cl_hash_id):
-    return find_path(graph_params, clustering_params, coords, cl_hash_id)
+def call_find_path(graph_params, clustering_params, cl_hash_id):
+    return find_path(graph_params, clustering_params, cl_hash_id)
 
 
 def load_clustering_params():

@@ -7,15 +7,12 @@ import time
 import urllib.request
 
 import mercantile
-import mpu
-import networkx
 import numpy as np
 import pandas
 import shapely
 from cairo import ImageSurface, FORMAT_ARGB32, Context, LINE_JOIN_ROUND, LINE_CAP_ROUND, LinearGradient
-from flask import Response
-from shapely.ops import nearest_points
-from DataMovements.data_movements import load_avg_values, load_polygon_geoms, store_polygon_geoms
+
+from DataMovements.data_movements import load_avg_values, load_polygon_geoms, store_polygon_geoms, store_extent
 
 
 class MapRenderer:
@@ -394,12 +391,17 @@ class MapRenderer:
         self.left_top = tuple(mercantile.xy(self.west, self.north))
         right_bottom = tuple(mercantile.xy(self.east, self.south))
 
-        self.geographic_extent_manual = [
-            self.left_top[0],
-            right_bottom[1],
-            right_bottom[0],
-            self.left_top[1]
-        ]
+        # Это для малышей беспилотников и клиентской карты,
+        # обновляется моментально, пытаться грузить из БД бессмысленно
+        if not self.geographic_extent_manual:
+            self.geographic_extent_manual = [
+                self.left_top[0],
+                right_bottom[1],
+                right_bottom[0],
+                self.left_top[1]
+            ]
+            dataset_id = int(self.clustering_params['dataset_id'])
+            store_extent(self.geographic_extent_manual, dataset_id)
 
         # рассчитываем коэффициенты
         self.kx = self.map_image.get_width() / (right_bottom[0] - self.left_top[0])

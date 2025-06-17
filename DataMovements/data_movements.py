@@ -1,8 +1,12 @@
 import hashlib
 import json
+from datetime import datetime
+
+import mercantile
+import networkx
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from sqlalchemy import and_
 
 from DataMovements.model import db, Hashes, Datasets, PositionsCleaned, Clusters, ClusterMembers, DatasetAnalysisLink, \
     ClAverageValues, ClPolygons
@@ -359,3 +363,69 @@ def delete_dataset_by_id(dataset_id, current_user_id):
         db.session.rollback()
         print(f"Ошибка при удалении датасета {dataset_id}: {e}")
         return False, 'Произошла ошибка на сервере при удалении датасета.'
+
+
+def store_extent(geographic_extent, dataset_id):
+    if not all([dataset_id, geographic_extent and len(geographic_extent) == 4]):
+        print("Ошибка: Для сохранения extent необходимы ID датасета и список из 4 координат.")
+        return
+
+    dataset_to_update = db.session.query(Datasets).get(dataset_id)
+
+    if dataset_to_update:
+        # print(f"Найден датасет с ID {dataset_id}. Обновление полей extent...")
+        dataset_to_update.extent_min_x = geographic_extent[0]
+        dataset_to_update.extent_min_y = geographic_extent[1]
+        dataset_to_update.extent_max_x = geographic_extent[2]
+        dataset_to_update.extent_max_y = geographic_extent[3]
+        try:
+            db.session.commit()
+            # print(f"Extent для датасета {dataset_id} успешно сохранен.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Произошла ошибка при сохранении extent: {e}")
+    else:
+        print(f"Ошибка: Не удалось найти датасет с ID {dataset_id} в базе данных.")
+
+
+# Для малышей беспилотников, работает, но пока не вызывается (:
+# TODO: сделать таблу с одобренными графами,
+#  беспилотники должны обращаться уже к графам, а не к датасетам
+def find_first_matching_dataset(start_coords: tuple, end_coords: tuple):
+    try:
+        start_lat, start_lon = start_coords
+        end_lat, end_lon = end_coords
+        start_x, start_y = mercantile.xy(start_lon, start_lat)
+        end_x, end_y = mercantile.xy(end_lon, end_lat)
+
+        print(f"Поиск датасета для точек: Начало ({start_x}, {start_y}), Конец ({end_x}, {end_y})")
+
+        matching_dataset = db.session.query(Datasets).filter(
+            and_(
+                Datasets.extent_min_x <= start_x,
+                start_x <= Datasets.extent_max_x,
+                Datasets.extent_min_y <= start_y,
+                start_y <= Datasets.extent_max_y,
+
+                Datasets.extent_min_x <= end_x,
+                end_x <= Datasets.extent_max_x,
+                Datasets.extent_min_y <= end_y,
+                end_y <= Datasets.extent_max_y
+            )
+        ).first()
+
+        if matching_dataset:
+            print(f"Найдено совпадение: Датасет ID {matching_dataset.id} ('{matching_dataset.dataset_name}')")
+            return matching_dataset
+        else:
+            print("Совпадений не найдено. Ни один датасет не содержит обе точки.")
+            return None
+
+    except Exception as e:
+        print(f"Произошла ошибка при поиске датасета: {e}")
+        return None
+
+
+# TODO: реализовать, выделить хэшируемые параметры
+def store_graph(graph: networkx.DiGraph, analysis_hash_id):
+    pass

@@ -9,11 +9,29 @@ import shapely
 from shapely.ops import nearest_points
 from shapely.ops import nearest_points
 
-from DataMovements.data_movements import load_clusters, get_hash_value
+from DataMovements.data_movements import load_clusters, get_hash_value, store_graph
 from Visualization.visualization import MapRenderer
 
 
-def find_path(graph_params, clustering_params, coords, cl_hash_id):
+def get_coordinates(coords):
+    lat, long = coords.split(',')
+    return lat, long
+
+
+def find_path(graph_params, clustering_params, cl_hash_id):
+    start_long, start_lat = get_coordinates(graph_params['start_coords'])
+    end_lon, end_lat = get_coordinates(graph_params['end_coords'])
+    coords = dict(start_lat=start_lat, start_lon=start_long, end_lat=end_lat, end_lon=end_lon)
+    del graph_params['start_coords']
+    del graph_params['end_coords']
+
+    for key in graph_params:
+        if key not in ('search_algorithm', 'points_inside', 'dataset_id'):
+            graph_params[key] = float(graph_params[key])
+
+    for key in coords:
+        coords[key] = float(coords[key])
+
     _, df = load_clusters(cl_hash_id)
     min_lat = df['lat'].min()
     min_lon = df['lon'].min()
@@ -21,7 +39,7 @@ def find_path(graph_params, clustering_params, coords, cl_hash_id):
     max_lon = df['lon'].max()
     ds_hash_id = int(graph_params['dataset_id'])
     ds_hash_value = get_hash_value(ds_hash_id)
-    
+
     graph_builder = GraphBuilder(west=min_lat, south=min_lon, east=max_lat, north=max_lon, zoom=12, df=df,
                                  cl_hash_id=cl_hash_id, ds_hash_value=ds_hash_value)
     graph_builder.map_renderer.clustering_params = clustering_params
@@ -268,6 +286,9 @@ class GraphBuilder:
         if (start_interesting_points == 0 or end_interesting_points == 0) and create_new_graph:
             self.map_renderer.graph_params = {}
             self.graph = networkx.DiGraph()
+        else:
+            # TODO: добавить где-то сверху попытку загрузить граф из БД
+            store_graph(self.graph, self.map_renderer.cl_hash_id)
 
         return result_graph
 

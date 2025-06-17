@@ -76,34 +76,17 @@ def logout():
     return redirect(url_for('login'))
 
 
-def get_coordinates(coords):
-    lat, long = coords.split(',')
-    return lat, long
-
-
 @app.route('/post_graphs_parameters', methods=['POST'])
 @login_required
 def get_graph():
     parameters_for_graph = request.get_json()
 
-    start_long, start_lat = get_coordinates(parameters_for_graph['start_coords'])
-    end_lon, end_lat = get_coordinates(parameters_for_graph['end_coords'])
-    coords = dict(start_lat=start_lat, start_lon=start_long, end_lat=end_lat, end_lon=end_lon)
-    del parameters_for_graph['start_coords']
-    del parameters_for_graph['end_coords']
-
-    for key in parameters_for_graph:
-        if key not in ('search_algorithm', 'points_inside', 'dataset_id'):
-            parameters_for_graph[key] = float(parameters_for_graph[key])
-
-    for key in coords:
-        coords[key] = float(coords[key])
-
     cl_hash_id = session.get('cl_hash_id')
-    if not cl_hash_id:
+    clustering_params = session.get('clustering_params')
+    if not (cl_hash_id and clustering_params):
         return jsonify({"error": "Сначала необходимо выполнить кластеризацию."}), 400
 
-    graph_data = call_find_path(parameters_for_graph, load_clustering_params(), coords, cl_hash_id)
+    graph_data = call_find_path(parameters_for_graph, clustering_params, cl_hash_id)
     return jsonify(graph_data)
 
 
@@ -114,6 +97,7 @@ def get_clusters():
     parameters_for_clustering = request.get_json()
     clusters_data = call_clustering(parameters_for_clustering)
     session['cl_hash_id'] = clusters_data[3]
+    session['clustering_params'] = parameters_for_clustering
     print('Общее время прогона кластеризации с отрисовкой:', round(time.time() - start, 2), 'сек.')
     return jsonify(clusters_data)
 
