@@ -1,15 +1,17 @@
 import hashlib
 import json
+import time
 from datetime import datetime
 
 import mercantile
 import networkx
 import numpy as np
 import pandas as pd
+import shapely
 from sqlalchemy import and_
 
 from DataMovements.model import db, Hashes, Datasets, PositionsCleaned, Clusters, ClusterMembers, DatasetAnalysisLink, \
-    ClAverageValues, ClPolygons
+    ClAverageValues, ClPolygons, GraphVertexes, GraphEdges, Graphs
 
 
 def fetch_datasets_for_user(user_id):
@@ -39,6 +41,11 @@ def read_csv_or_xlsx(file):
 def get_hash_value(hash_id):
     hash_obj = db.session.query(Hashes).filter_by(hash_id=hash_id).first()
     return hash_obj.hash_value
+
+
+def get_ds_hash_id(dataset_id):
+    dsal_obj = db.session.query(Datasets).filter_by(id=dataset_id).first()
+    return dsal_obj.source_hash_id
 
 
 def integrity_check(hash_value, dataset_name):
@@ -329,11 +336,7 @@ def load_polygon_geoms(cl_hash_id: int):
     return polygons
 
 
-# --- Функции для удаления ---
 def delete_dataset_by_id(dataset_id, current_user_id):
-    """
-    Удаляет датасет, все связанные с ним АНАЛИЗЫ и исходные данные.
-    """
     try:
         dataset_to_delete = db.session.get(Datasets, int(dataset_id))
         if not dataset_to_delete:
@@ -389,8 +392,7 @@ def store_extent(geographic_extent, dataset_id):
 
 
 # Для малышей беспилотников, работает, но пока не вызывается (:
-# TODO: сделать таблу с одобренными графами,
-#  беспилотники должны обращаться уже к графам, а не к датасетам
+# TODO: Доделать API метод
 def find_first_matching_dataset(start_coords: tuple, end_coords: tuple):
     try:
         start_lat, start_lon = start_coords
@@ -426,6 +428,153 @@ def find_first_matching_dataset(start_coords: tuple, end_coords: tuple):
         return None
 
 
-# TODO: реализовать, выделить хэшируемые параметры
-def store_graph(graph: networkx.DiGraph, analysis_hash_id):
-    pass
+def load_graph(hash_id, map_renderer):
+    start = time.time()
+    graph_db = db.session.query(Graphs).filter_by(hash_id=hash_id).first()
+    graph_nx = networkx.DiGraph()
+
+    vertex_map = {}
+    for i, vertex in enumerate(graph_db.vertexes):
+        point = shapely.Point(map_renderer.get_img_coords_from_lat_lon(vertex.latitude, vertex.longitude))
+        graph_nx.add_node(point)
+        vertex_map[vertex.vertex_id] = point
+
+    for edge in graph_db.edges:
+        start_point = vertex_map.get(edge.start_vertex_id)
+        end_point = vertex_map.get(edge.end_vertex_id)
+
+        if start_point and end_point:
+            graph_nx.add_edge(
+                start_point,
+                end_point,
+                edge_id=edge.edge_id,
+                weight=edge.weight,
+                color=json.loads(edge.color),
+                angle_deviation=edge.angle_deviation,
+                distance=edge.distance,
+                speed=edge.speed
+            )
+
+    print(f"Граф успешно загружен из БД: {graph_nx.number_of_nodes()} вершин, {graph_nx.number_of_edges()} ребер.")
+    print(f'Время загрузки графа: {time.time() - start}')
+    return graph_db.hash_id, graph_nx
+
+
+def check_graph(graph_params: dict, map_renderer):
+    params_for_hashing = {
+        'points_inside': graph_params['points_inside'],
+        'distance_delta': graph_params['distance_delta'],
+        'angle_of_vision': graph_params['angle_of_vision'],
+        'dataset_id': graph_params['dataset_id'],
+        'cl_hash_id': graph_params['cl_hash_id']
+    }
+    params_str = json.dumps(params_for_hashing, sort_keys=True)
+    hash_value = hashlib.md5(params_str.encode('utf-8')).hexdigest()
+    hash_obj = db.session.query(Hashes).filter_by(hash_value=hash_value).first()
+
+    if hash_obj:
+        print(f"Найден существующий граф с hash_id: {hash_obj.hash_id}")
+        return load_graph(hash_obj.hash_id, map_renderer)
+    else:
+        return None, None
+
+
+def store_graph(graph: networkx.DiGraph, dataset_id: int, analysis_hash_id: int, map_renderer):
+    start = time.time()
+    params_for_hashing = {
+        'points_inside': map_renderer.graph_params['points_inside'],
+        'distance_delta': map_renderer.graph_params['distance_delta'],
+        'angle_of_vision': map_renderer.graph_params['angle_of_vision'],
+        'dataset_id': map_renderer.graph_params['dataset_id'],
+        'cl_hash_id': map_renderer.graph_params['cl_hash_id']
+    }
+    params_str = json.dumps(params_for_hashing, sort_keys=True)
+    hash_value = hashlib.md5(params_str.encode('utf-8')).hexdigest()
+
+    new_hash = Hashes(
+        hash_value=hash_value,
+        timestamp=datetime.now(),
+        params=map_renderer.graph_params
+    )
+    db.session.add(new_hash)
+    db.session.flush()
+
+    link = db.session.query(DatasetAnalysisLink).filter_by(
+        dataset_id=dataset_id,
+        analysis_hash_id=analysis_hash_id
+    ).first()
+
+    if not link:
+        print(
+            f"ОШИБКА: Не найдена связь для dataset_id {dataset_id} и analysis_hash_id {analysis_hash_id}. Граф не будет сохранен.")
+        return
+
+    graph_db = Graphs(
+        hash_id=new_hash.hash_id,
+        dataset_id=dataset_id,
+        analysis_hash_id=analysis_hash_id
+    )
+
+    node_to_vertex_map = {}
+    for node in graph.nodes():
+        lat, lon = map_renderer.get_lat_lon_from_img_coords(node.x, node.y)
+
+        vertex_db = GraphVertexes(latitude=lat, longitude=lon)
+        graph_db.vertexes.append(vertex_db)
+        node_to_vertex_map[node] = vertex_db
+
+    for start_node, end_node, edge_data in graph.edges(data=True):
+        start_vertex_db = node_to_vertex_map[start_node]
+        end_vertex_db = node_to_vertex_map[end_node]
+
+        edge_db = GraphEdges(
+            start_vertex=start_vertex_db,
+            end_vertex=end_vertex_db,
+            distance=edge_data.get('distance'),
+            speed=edge_data.get('speed'),
+            weight=edge_data.get('weight'),
+            color=str(edge_data.get('color')),
+            angle_deviation=edge_data.get('angle_deviation')
+        )
+        graph_db.edges.append(edge_db)
+    try:
+        db.session.add(graph_db)
+        db.session.commit()
+        print(f"Граф для анализа {analysis_hash_id} успешно сохранен: "
+              f"{len(graph_db.vertexes)} вершин и {len(graph_db.edges)} ребер.")
+        print(f'Время сохранения графа: {time.time() - start}')
+    except Exception as e:
+        db.session.rollback()  # Откатываем изменения в случае ошибки
+        print(f"ОШИБКА при сохранении графа в БД: {e}")
+
+
+def get_hash_params(hash_id):
+    hash_obj = db.session.query(Hashes).filter_by(hash_id=hash_id).first()
+    return hash_obj.params
+
+
+def update_graph_edges(hash_id: int, new_params: dict, graph_nx: networkx.DiGraph, map_renderer):
+    start = time.time()
+    try:
+        hash_obj = db.session.get(Hashes, hash_id)
+        if hash_obj:
+            hash_obj.params = new_params
+            db.session.flush()
+
+        bulk_updates = []
+        for _, _, data in graph_nx.edges(data=True):
+            edge_id = data.get('edge_id')
+            if edge_id is not None:
+                bulk_updates.append({
+                    'edge_id': edge_id,
+                    'weight': data.get('weight')
+                })
+
+        if bulk_updates:
+            db.session.bulk_update_mappings(GraphEdges, bulk_updates)
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Ошибка при обновлении весов рёбер для графа с hash_id {hash_id}: {e}")
+    finally:
+        print(f'Время обновления весов: {time.time() - start}')

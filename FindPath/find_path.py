@@ -9,7 +9,8 @@ import shapely
 from shapely.ops import nearest_points
 from shapely.ops import nearest_points
 
-from DataMovements.data_movements import load_clusters, get_hash_value, store_graph
+from DataMovements.data_movements import load_clusters, get_hash_value, get_ds_hash_id, store_graph, check_graph, \
+    get_hash_params, update_graph_edges
 from Visualization.visualization import MapRenderer
 
 
@@ -37,57 +38,17 @@ def find_path(graph_params, clustering_params, cl_hash_id):
     min_lon = df['lon'].min()
     max_lat = df['lat'].max()
     max_lon = df['lon'].max()
-    ds_hash_id = int(graph_params['dataset_id'])
+    dataset_id = int(graph_params['dataset_id'])
+    ds_hash_id = get_ds_hash_id(dataset_id)
     ds_hash_value = get_hash_value(ds_hash_id)
 
     graph_builder = GraphBuilder(west=min_lat, south=min_lon, east=max_lat, north=max_lon, zoom=12, df=df,
                                  cl_hash_id=cl_hash_id, ds_hash_value=ds_hash_value)
     graph_builder.map_renderer.clustering_params = clustering_params
     graph_builder.map_renderer.graph_params = graph_params
+    # print(graph_params, clustering_params, cl_hash_id)
     return graph_builder.find_path(coords['start_lon'], coords['start_lat'], coords['end_lon'],
-                                   coords['end_lat'], create_new_graph=True)
-    # try:
-    #     with open('./Main/map_builder_dump.pickle', 'rb') as load_file:
-    #         map_builder_loaded = pickle.load(load_file)
-    #
-    #     if len(map_builder_loaded.graph_params.keys()) == 0:
-    #         map_builder_loaded.graph_params = graph_params
-    #         result = map_builder_loaded.find_path(coords['start_lon'], coords['start_lat'], coords['end_lon'],
-    #                                               coords['end_lat'], create_new_graph=True)
-    #     elif map_builder_loaded.graph_params == graph_params:
-    #         result = map_builder_loaded.find_path(coords['start_lon'], coords['start_lat'], coords['end_lon'],
-    #                                               coords['end_lat'], create_new_graph=False)
-    #     elif map_builder_loaded.graph_params['distance_delta'] == graph_params['distance_delta'] and \
-    #             map_builder_loaded.graph_params['angle_of_vision'] == graph_params['angle_of_vision'] and \
-    #             map_builder_loaded.graph_params['points_inside'] == graph_params['points_inside'] and \
-    #             (map_builder_loaded.graph_params['weight_time_graph'] != graph_params['weight_time_graph'] or
-    #              map_builder_loaded.graph_params['weight_course_graph'] != graph_params['weight_course_graph'] or
-    #              map_builder_loaded.graph_params['weight_func_degree'] != graph_params['weight_func_degree'] or
-    #              map_builder_loaded.graph_params['search_algorithm'] != graph_params['search_algorithm']):
-    #         # Пересчет ребер происходит очень быстро,
-    #         # нет смысла отдельно обрабатывать случай, когда изменился только алгоритм поиска
-    #         map_builder_loaded.graph_params = graph_params
-    #         map_builder_loaded.recalculate_edges()
-    #         result = map_builder_loaded.find_path(coords['start_lon'], coords['start_lat'], coords['end_lon'],
-    #                                               coords['end_lat'], create_new_graph=False)
-    #     else:
-    #         map_builder_loaded.graph_params = graph_params
-    #         result = map_builder_loaded.find_path(coords['start_lon'], coords['start_lat'], coords['end_lon'],
-    #                                               coords['end_lat'], create_new_graph=True)
-    #     # print(map_builder_loaded.graph)
-    #
-    # except FileNotFoundError or EOFError:
-    #     clustering_params = {'weight_distance': 1.0, 'weight_speed': 5.0, 'weight_course': 20.0, 'eps': 0.309,
-    #                          'min_samples': 50, 'metric_degree': 2.0, 'hull_type': 'convex_hull'}
-    #     clustering(clustering_params)
-    #     with open('./Main/map_builder_dump.pickle', 'rb') as load_file:
-    #         map_builder_loaded = pickle.load(load_file)
-    #
-    #     map_builder_loaded.graph_params = graph_params
-    #     result = map_builder_loaded.find_path(coords['start_lon'], coords['start_lat'], coords['end_lon'],
-    #                                           coords['end_lat'], create_new_graph=True)
-    #
-    # return result
+                                   coords['end_lat'])
 
 
 class GraphBuilder:
@@ -189,7 +150,7 @@ class GraphBuilder:
 
         return interesting_points
 
-    def recalculate_edges(self):
+    def recalculate_edges(self, gr_hash_id):
         p = self.map_renderer.graph_params['weight_func_degree']
         for edge in self.graph.edges:
             data = self.graph.get_edge_data(edge[0], edge[1])
@@ -201,14 +162,12 @@ class GraphBuilder:
             self.graph.add_edge(edge[0], edge[1], weight=weight, color=data['color'],
                                 angle_deviation=data['angle_deviation'], distance=data['distance'], speed=data['speed'])
 
+        update_graph_edges(gr_hash_id, self.map_renderer.graph_params, self.graph, self.map_renderer)
+
     def build_graph(self, start_point=None, end_point=None, create_new_graph=False):
         build_graph_start_time = time.time()
         result_graph = {}
         end_point_saved = None
-        if len(self.graph.edges) == 0:
-            create_new_graph = True
-        if create_new_graph:
-            self.graph = networkx.DiGraph()
 
         # Обработка случая, когда точка А или Б не попала в полигон
         # Предполагаем, что скорость в таком случае 30 узлов
@@ -276,40 +235,47 @@ class GraphBuilder:
         # Выделение точек начала и конца
         self.map_renderer.show_start_and_end_points(start_point, end_point)
 
-        # Удаляем начальный и конечный узлы, не попавшие в полигоны,
+        # Удаляем начальный и конечный узлы,
         # чтобы в графе не копился мусор
-        if not start_point_in_poly:
-            self.graph.remove_node(start_point)
-        if not end_point_in_poly:
-            self.graph.remove_node(end_point)
+        self.graph.remove_node(start_point)
+        self.graph.remove_node(end_point)
         # Если граф не был построен - обнуляем граф и его параметры
         if (start_interesting_points == 0 or end_interesting_points == 0) and create_new_graph:
             self.map_renderer.graph_params = {}
             self.graph = networkx.DiGraph()
-        else:
-            # TODO: добавить где-то сверху попытку загрузить граф из БД
-            store_graph(self.graph, self.map_renderer.cl_hash_id)
+        elif create_new_graph:
+            store_graph(self.graph, self.map_renderer.graph_params['dataset_id'], self.map_renderer.cl_hash_id,
+                        self.map_renderer)
 
         return result_graph
 
-    def find_path(self, x_start, y_start, x_end, y_end, create_new_graph):
+    def find_path(self, x_start, y_start, x_end, y_end):
         self.map_renderer.create_empty_map()
         self.map_renderer.calculate_points_on_image()
         self.map_renderer.create_empty_map_with_points()
         self.map_renderer.show_polygons()
         self.map_renderer.show_intersections()
         self.map_renderer.show_average_values()
-        # Если delta большая - работает достаточно быстро
-        if create_new_graph:
-            self.map_renderer.intersection_points = []
+
+        gr_hash_id, self.graph = check_graph(self.map_renderer.graph_params, self.map_renderer)
+        if self.graph:
+            self.map_renderer.intersection_points = list(self.graph.nodes)
+            create_new_graph = False
+            saved_params = get_hash_params(gr_hash_id)
+            if (saved_params['weight_time_graph'] != self.map_renderer.graph_params['weight_time_graph'] or
+                    saved_params['weight_course_graph'] != self.map_renderer.graph_params['weight_course_graph'] or
+                    saved_params['weight_func_degree'] != self.map_renderer.graph_params['weight_func_degree']):
+                self.recalculate_edges(gr_hash_id)
+        else:
+            self.graph = networkx.DiGraph()
+            create_new_graph = True
         self.map_renderer.show_intersection_points()
 
         x_start, y_start = self.map_renderer.get_img_coords_from_lat_lon(x_start, y_start)
         x_end, y_end = self.map_renderer.get_img_coords_from_lat_lon(x_end, y_end)
 
         result_graph = self.build_graph(shapely.Point(x_start, y_start),
-                                        shapely.Point(x_end, y_end),
-                                        create_new_graph)
+                                        shapely.Point(x_end, y_end), create_new_graph)
 
         graph_img = self.map_renderer.save_clustered_image('path')
 

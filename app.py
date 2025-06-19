@@ -85,7 +85,7 @@ def get_graph():
     clustering_params = session.get('clustering_params')
     if not (cl_hash_id and clustering_params):
         return jsonify({"error": "Сначала необходимо выполнить кластеризацию."}), 400
-
+    parameters_for_graph['cl_hash_id'] = cl_hash_id
     graph_data = call_find_path(parameters_for_graph, clustering_params, cl_hash_id)
     return jsonify(graph_data)
 

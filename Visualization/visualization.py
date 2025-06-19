@@ -449,7 +449,7 @@ class MapRenderer:
         web_x = x / self.kx + self.left_top[0]
         web_y = y / self.ky + self.left_top[1]
         lon, lat = mercantile.lnglat(web_x, web_y)
-        return round(lat, 6), round(lon, 6)
+        return lat, lon
 
     @staticmethod
     def get_hours_minutes_str(time_parameter):

@@ -159,11 +159,20 @@ class Graphs(db.Model):
         ['dataset_id', 'analysis_hash_id'],
         ['dataset_analysis_link.dataset_id', 'dataset_analysis_link.analysis_hash_id'],
         ondelete='CASCADE'),)
-    hash = db.relationship('Hashes', back_populates='clusters')
+    hash = db.relationship('Hashes', back_populates='graphs')
     dataset_analysis_link = db.relationship('DatasetAnalysisLink', back_populates='graphs')
     vertexes = db.relationship('GraphVertexes', back_populates='graph', cascade="all, delete-orphan",
                                passive_deletes=True)
     edges = db.relationship('GraphEdges', back_populates='graph', cascade="all, delete-orphan", passive_deletes=True)
+    approved_graphs = db.relationship('ApprovedGraphs', back_populates='graph', cascade="all, delete-orphan",
+                                      passive_deletes=True)
+
+
+class ApprovedGraphs(db.Model):
+    __tablename__ = 'approved_graphs'
+    graph_id = db.Column(db.Integer, db.ForeignKey('graphs.graph_id', ondelete='CASCADE'), primary_key=True)
+
+    graph = db.relationship('Graphs', back_populates='approved_graphs')
 
 
 class GraphVertexes(db.Model):

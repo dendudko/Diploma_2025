@@ -6,7 +6,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 
 from DataMovements.data_movements import load_positions_cleaned, check_clusters, \
-    store_clusters, store_avg_values, get_hash_value
+    store_clusters, store_avg_values, get_hash_value, get_ds_hash_id
 from Visualization.visualization import MapRenderer
 
 
@@ -87,7 +87,8 @@ def clustering(clustering_params):
     # file_path = f'./static/images/clustered/clustered_{file_name}_eps_for_min_samples_{min_samples}.png'
     # plt.savefig(file_path)
 
-    ds_hash_value = get_hash_value(dataset_id)
+    ds_hash_id = get_ds_hash_id(dataset_id)
+    ds_hash_value = get_hash_value(ds_hash_id)
     map_renderer = MapRenderer(west=min_lat, south=min_lon, east=max_lat, north=max_lon, zoom=12, df=df,
                                cl_hash_id=cl_hash_id, ds_hash_value=ds_hash_value)
     map_renderer.clustering_params = clustering_params
