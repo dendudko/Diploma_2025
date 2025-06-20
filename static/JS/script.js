@@ -34,7 +34,6 @@ function createImageLayer(options) {
  */
 
 const backgroundImageUrl = '/static/images/bg/background.png';
-// const geographicExtent = [15522946.393668033, 5002641.018067474, 15751596.627757415, 5160979.444049783];
 let geographicExtent = [15538419.802888298, 5003643.068442375, 15751596.627757415, 5160889.56738335];
 const backgroundImage = new Image();
 

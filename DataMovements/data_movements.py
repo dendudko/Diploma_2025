@@ -337,34 +337,65 @@ def load_polygon_geoms(cl_hash_id: int):
 
 
 def delete_dataset_by_id(dataset_id, current_user_id):
+    """
+    Удаляет датасет и все связанные с ним данные, включая хэши
+    исходных данных, кластеризации и графов.
+    """
     try:
         dataset_to_delete = db.session.get(Datasets, int(dataset_id))
+
         if not dataset_to_delete:
             return False, 'Датасет не найден.'
 
         dataset_name = dataset_to_delete.dataset_name
 
         if dataset_to_delete.user_id != current_user_id:
-            return False, f'Отказано в доступе: вы не являетесь владельцем датасета {dataset_name}'
+            return False, f'Отказано в доступе: вы не являетесь владельцем датасета "{dataset_name}"'
 
-        source_hash = dataset_to_delete.source_hash
+        hashes_to_check_later = set()
 
-        analysis_hashes_to_delete = [link.analysis_hash for link in dataset_to_delete.analysis_links]
+        if dataset_to_delete.source_hash_id:
+            hashes_to_check_later.add(dataset_to_delete.source_hash_id)
 
-        for analysis_hash in analysis_hashes_to_delete:
-            print(f"Удаляется связанный анализ с hash_id: {analysis_hash.hash_id}")
-            db.session.delete(analysis_hash)
+        for link in dataset_to_delete.analysis_links:
+            if link.analysis_hash_id:
+                hashes_to_check_later.add(link.analysis_hash_id)
 
-        if source_hash:
-            print(f"Удаляются исходные данные с hash_id: {source_hash.hash_id}")
-            db.session.delete(source_hash)
+            for graph in link.graphs:
+                if graph.hash_id:
+                    hashes_to_check_later.add(graph.hash_id)
+
+        print(f"Постановка на удаление датасета: '{dataset_name}' (ID: {dataset_id})")
+        db.session.delete(dataset_to_delete)
 
         db.session.commit()
+        print(f"Датасет '{dataset_name}' и его дочерние записи (анализы, графы) успешно удалены.")
+
+        if hashes_to_check_later:
+            print(f"Проверка на осиротевшие хэши: {list(hashes_to_check_later)}")
+            for hash_id_to_check in hashes_to_check_later:
+                is_used_elsewhere = db.session.query(
+                    db.or_(
+                        db.session.query(Datasets).filter_by(source_hash_id=hash_id_to_check).exists(),
+                        db.session.query(DatasetAnalysisLink).filter_by(analysis_hash_id=hash_id_to_check).exists(),
+                        db.session.query(Graphs).filter_by(hash_id=hash_id_to_check).exists()
+                    )
+                ).scalar()
+
+                if not is_used_elsewhere:
+                    print(f"Хэш {hash_id_to_check} больше не используется. Удаление.")
+                    hash_to_delete = db.session.get(Hashes, hash_id_to_check)
+                    if hash_to_delete:
+                        db.session.delete(hash_to_delete)
+
+            db.session.commit()
+            print("Очистка осиротевших хэшей завершена.")
+
         return True, f'Датасет "{dataset_name}" и все связанные данные успешно удалены.'
 
     except Exception as e:
         db.session.rollback()
-        print(f"Ошибка при удалении датасета {dataset_id}: {e}")
+        print(f"Критическая ошибка при удалении датасета {dataset_id}: {e}")
         return False, 'Произошла ошибка на сервере при удалении датасета.'
 
 
@@ -540,7 +571,7 @@ def store_graph(graph: networkx.DiGraph, dataset_id: int, analysis_hash_id: int,
     try:
         db.session.add(graph_db)
         db.session.commit()
-        print(f"Граф для анализа {analysis_hash_id} успешно сохранен: "
+        print(f"Граф для анализа с hash_id={analysis_hash_id} успешно сохранен: "
               f"{len(graph_db.vertexes)} вершин и {len(graph_db.edges)} ребер.")
         print(f'Время сохранения графа: {time.time() - start}')
     except Exception as e:
