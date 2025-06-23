@@ -1,18 +1,20 @@
 import hashlib
 import json
-import numpy as np
-import pandas as pd
+import time
 from datetime import datetime
 
+import mercantile
+import networkx
+import numpy as np
+import pandas as pd
+import shapely
+from sqlalchemy import and_, desc
+
 from DataMovements.model import db, Hashes, Datasets, PositionsCleaned, Clusters, ClusterMembers, DatasetAnalysisLink, \
-    ClAverageValues, ClPolygons
+    ClAverageValues, ClPolygons, GraphVertexes, GraphEdges, Graphs, ApprovedGraphs
 
 
 def fetch_datasets_for_user(user_id):
-    """
-    Извлекает датасеты для пользователя.
-    Возвращает ID из таблицы Datasets, а не hash_id, для корректной идентификации в UI.
-    """
     all_datasets = db.session.query(Datasets.id, Datasets.dataset_name).order_by(Datasets.dataset_name).all()
     mine_datasets = db.session.query(Datasets.id, Datasets.dataset_name).filter_by(user_id=user_id).order_by(
         Datasets.dataset_name).all()
@@ -24,7 +26,6 @@ def fetch_datasets_for_user(user_id):
 
 
 def read_csv_or_xlsx(file):
-    """Читает файл в DataFrame в зависимости от расширения."""
     if file.filename.endswith('.csv'):
         return pd.read_csv(file, sep=';', decimal=',')
     elif file.filename.endswith('.xlsx'):
@@ -37,10 +38,12 @@ def get_hash_value(hash_id):
     return hash_obj.hash_value
 
 
+def get_ds_hash_id(dataset_id):
+    dsal_obj = db.session.query(Datasets).filter_by(id=dataset_id).first()
+    return dsal_obj.source_hash_id
+
+
 def integrity_check(hash_value, dataset_name):
-    """
-    Проверяет, существует ли уже датасет с таким же хэшем исходных данных или названием.
-    """
     hash_obj = db.session.query(Hashes).filter_by(hash_value=hash_value).first()
     if hash_obj and hash_obj.source_of_datasets:
         existing_dataset = hash_obj.source_of_datasets[0]
@@ -54,9 +57,6 @@ def integrity_check(hash_value, dataset_name):
 
 
 def store_dataset(df: pd.DataFrame, dataset_name, user_id, hash_value):
-    """
-    Сохраняет исходные, обработанные данные (позиции) и информацию о датасете.
-    """
     new_hash = Hashes(hash_value=hash_value, timestamp=datetime.now(), params=None)
     db.session.add(new_hash)
     db.session.flush()
@@ -130,17 +130,13 @@ def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpo
                         if mask.sum() >= 2:
                             g.loc[sub_g.index, col] = sub_g[col].interpolate(method='time')
 
-                # КОРРЕКТНАЯ интерполяция курса:
                 for grp, sub_g in g.groupby('gap_group'):
                     mask = sub_g[['course']].notna().any(axis=1)
                     if mask.sum() >= 2:
-                        # Переводим курс в синус и косинус
                         sin_course = np.sin(np.deg2rad(sub_g['course']))
                         cos_course = np.cos(np.deg2rad(sub_g['course']))
-                        # Интерполируем синус и косинус
                         sin_course_interp = sin_course.interpolate(method='time')
                         cos_course_interp = cos_course.interpolate(method='time')
-                        # Восстанавливаем курс
                         course_interp = np.rad2deg(np.arctan2(sin_course_interp, cos_course_interp))
                         course_interp = (course_interp + 360) % 360
                         g.loc[sub_g.index, 'course'] = course_interp
@@ -163,12 +159,7 @@ def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpo
         return False, f'Ошибка при создании датасета: {error_message}'
 
 
-# --- Функции для работы с кластеризацией ---
 def load_positions_cleaned(dataset_id):
-    """
-    Загружает очищенные позиции для выбранного пользователем датасета.
-    Принимает ID из таблицы Datasets.
-    """
     dataset = db.session.get(Datasets, int(dataset_id))
     if not dataset:
         raise ValueError("Датасет не найден.")
@@ -180,7 +171,7 @@ def load_positions_cleaned(dataset_id):
             PositionsCleaned.longitude.label('lon'),
             PositionsCleaned.speed,
             PositionsCleaned.course
-        ).filter_by(hash_id=dataset.source_hash_id).statement,  # Используем source_hash_id
+        ).filter_by(hash_id=dataset.source_hash_id).statement,
         db.engine
     )
 
@@ -203,10 +194,6 @@ def load_clusters(cl_hash_id):
 
 
 def check_clusters(clustering_params: dict):
-    """
-    Проверяет, существует ли уже результат кластеризации с заданными параметрами,
-    игнорируя параметр 'hull_type'.
-    """
     params_for_hashing = {k: v for k, v in clustering_params.items() if k != 'hull_type'}
     params_str = json.dumps(params_for_hashing, sort_keys=True)
     hash_value = hashlib.md5(params_str.encode('utf-8')).hexdigest()
@@ -232,7 +219,6 @@ def store_avg_values(df: pd.DataFrame, hash_id: int):
 
         avg_speed = speeds.mean() if not speeds.empty else None
 
-        # Средний курс с учетом цикличности
         if not courses.empty:
             sin_vals = np.sin(np.deg2rad(courses))
             cos_vals = np.cos(np.deg2rad(courses))
@@ -264,9 +250,6 @@ def load_avg_values(cl_hash_id):
 
 
 def store_clusters(df_results: pd.DataFrame, clustering_params: dict):
-    """
-    Сохраняет результаты кластеризации и создает связь с исходным датасетом.
-    """
     source_dataset_id = clustering_params['dataset_id']
     params_for_hashing = {k: v for k, v in clustering_params.items() if k != 'hull_type'}
     params_str = json.dumps(params_for_hashing, sort_keys=True)
@@ -318,44 +301,289 @@ def store_polygon_geoms(polygon_geoms: dict, cl_hash_id: int):
 
 def load_polygon_geoms(cl_hash_id: int):
     polygons = {}
-    # Получаем все точки для каждого кластера, отсортированные по порядку вставки
     rows = db.session.query(ClPolygons).filter_by(hash_id=cl_hash_id).all()
     for row in rows:
         polygons.setdefault(row.cluster_num, []).append((row.x, row.y))
     return polygons
 
 
-# --- Функции для удаления ---
 def delete_dataset_by_id(dataset_id, current_user_id):
     """
-    Удаляет датасет, все связанные с ним АНАЛИЗЫ и исходные данные.
+    Удаляет датасет и все связанные с ним данные, включая хэши
+    исходных данных, кластеризации и графов.
     """
     try:
         dataset_to_delete = db.session.get(Datasets, int(dataset_id))
+
         if not dataset_to_delete:
             return False, 'Датасет не найден.'
 
         dataset_name = dataset_to_delete.dataset_name
 
         if dataset_to_delete.user_id != current_user_id:
-            return False, f'Отказано в доступе: вы не являетесь владельцем датасета {dataset_name}'
+            return False, f'Отказано в доступе: вы не являетесь владельцем датасета "{dataset_name}"'
 
-        source_hash = dataset_to_delete.source_hash
+        hashes_to_check_later = set()
 
-        analysis_hashes_to_delete = [link.analysis_hash for link in dataset_to_delete.analysis_links]
+        if dataset_to_delete.source_hash_id:
+            hashes_to_check_later.add(dataset_to_delete.source_hash_id)
 
-        for analysis_hash in analysis_hashes_to_delete:
-            print(f"Удаляется связанный анализ с hash_id: {analysis_hash.hash_id}")
-            db.session.delete(analysis_hash)
+        for link in dataset_to_delete.analysis_links:
+            if link.analysis_hash_id:
+                hashes_to_check_later.add(link.analysis_hash_id)
 
-        if source_hash:
-            print(f"Удаляются исходные данные с hash_id: {source_hash.hash_id}")
-            db.session.delete(source_hash)
+            for graph in link.graphs:
+                if graph.hash_id:
+                    hashes_to_check_later.add(graph.hash_id)
+
+        print(f"Постановка на удаление датасета: '{dataset_name}' (ID: {dataset_id})")
+        db.session.delete(dataset_to_delete)
 
         db.session.commit()
+        print(f"Датасет '{dataset_name}' и его дочерние записи (результаты кластеризации, графы) успешно удалены.")
+
+        if hashes_to_check_later:
+            print(f"Проверка на осиротевшие хэши: {list(hashes_to_check_later)}")
+            for hash_id_to_check in reversed(list(hashes_to_check_later)):
+                is_used_elsewhere = db.session.query(
+                    db.or_(
+                        db.session.query(Datasets).filter_by(source_hash_id=hash_id_to_check).exists(),
+                        db.session.query(DatasetAnalysisLink).filter_by(analysis_hash_id=hash_id_to_check).exists(),
+                        db.session.query(Graphs).filter_by(hash_id=hash_id_to_check).exists()
+                    )
+                ).scalar()
+
+                if not is_used_elsewhere:
+                    print(f"Хэш {hash_id_to_check} больше не используется. Удаление...")
+                    hash_to_delete = db.session.get(Hashes, hash_id_to_check)
+                    if hash_to_delete:
+                        db.session.delete(hash_to_delete)
+
+            db.session.commit()
+            print("Очистка осиротевших хэшей завершена.")
+
         return True, f'Датасет "{dataset_name}" и все связанные данные успешно удалены.'
 
     except Exception as e:
         db.session.rollback()
-        print(f"Ошибка при удалении датасета {dataset_id}: {e}")
+        print(f"Критическая ошибка при удалении датасета {dataset_id}: {e}")
         return False, 'Произошла ошибка на сервере при удалении датасета.'
+
+
+def store_extent(geographic_extent, dataset_id):
+    if not all([dataset_id, geographic_extent and len(geographic_extent) == 4]):
+        print("Ошибка: Для сохранения extent необходимы ID датасета и список из 4 координат.")
+        return
+
+    dataset_to_update = db.session.query(Datasets).get(dataset_id)
+
+    if dataset_to_update:
+        dataset_to_update.extent_min_x = geographic_extent[0]
+        dataset_to_update.extent_min_y = geographic_extent[1]
+        dataset_to_update.extent_max_x = geographic_extent[2]
+        dataset_to_update.extent_max_y = geographic_extent[3]
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Произошла ошибка при сохранении extent: {e}")
+    else:
+        print(f"Ошибка: Не удалось найти датасет с ID {dataset_id} в базе данных.")
+
+
+def load_graph(hash_id, map_renderer):
+    start = time.time()
+    graph_db = db.session.query(Graphs).filter_by(hash_id=hash_id).first()
+    graph_nx = networkx.DiGraph()
+
+    vertex_map = {}
+    for i, vertex in enumerate(graph_db.vertexes):
+        point = shapely.Point(map_renderer.get_img_coords_from_lat_lon(vertex.latitude, vertex.longitude))
+        graph_nx.add_node(point)
+        vertex_map[vertex.vertex_id] = point
+
+    for edge in graph_db.edges:
+        start_point = vertex_map.get(edge.start_vertex_id)
+        end_point = vertex_map.get(edge.end_vertex_id)
+
+        if start_point and end_point:
+            graph_nx.add_edge(
+                start_point,
+                end_point,
+                edge_id=edge.edge_id,
+                weight=edge.weight,
+                color=json.loads(edge.color),
+                angle_deviation=edge.angle_deviation,
+                distance=edge.distance,
+                speed=edge.speed
+            )
+
+    print(
+        f"Граф ID: {graph_db.graph_id} успешно загружен из БД: {graph_nx.number_of_nodes()} вершин, {graph_nx.number_of_edges()} ребер.")
+    print(f'Время загрузки графа: {round(time.time() - start, 2)} сек.')
+    return graph_db.graph_id, graph_db.hash_id, graph_nx
+
+
+def get_hash_value_from_graph_params(graph_params):
+    params_for_hashing = {
+        'points_inside': graph_params['points_inside'],
+        'distance_delta': graph_params['distance_delta'],
+        'angle_of_vision': graph_params['angle_of_vision'],
+        'dataset_id': graph_params['dataset_id'],
+        'cl_hash_id': graph_params['cl_hash_id'],
+        'hull_type': graph_params['hull_type']
+    }
+    params_str = json.dumps(params_for_hashing, sort_keys=True)
+    hash_value = hashlib.md5(params_str.encode('utf-8')).hexdigest()
+    return hash_value
+
+
+def check_graph(graph_params: dict, map_renderer):
+    hash_value = get_hash_value_from_graph_params(graph_params)
+    hash_obj = db.session.query(Hashes).filter_by(hash_value=hash_value).first()
+
+    if hash_obj:
+        print(f"Найден существующий граф с hash_id: {hash_obj.hash_id}")
+        return load_graph(hash_obj.hash_id, map_renderer)
+    else:
+        return None, None, None
+
+
+def store_graph(graph: networkx.DiGraph, dataset_id: int, analysis_hash_id: int, map_renderer):
+    start = time.time()
+    graph_params = dict(map_renderer.graph_params)
+    hash_value = get_hash_value_from_graph_params(graph_params)
+
+    del graph_params['search_algorithm']
+    new_hash = Hashes(
+        hash_value=hash_value,
+        timestamp=datetime.now(),
+        params=graph_params
+    )
+    db.session.add(new_hash)
+    db.session.flush()
+
+    link = db.session.query(DatasetAnalysisLink).filter_by(
+        dataset_id=dataset_id,
+        analysis_hash_id=analysis_hash_id
+    ).first()
+
+    if not link:
+        print(
+            f"ОШИБКА: Не найдена связь для dataset_id {dataset_id} и analysis_hash_id {analysis_hash_id}. "
+            f"Граф не будет сохранен.")
+        return
+
+    graph_db = Graphs(
+        hash_id=new_hash.hash_id,
+        dataset_id=dataset_id,
+        analysis_hash_id=analysis_hash_id
+    )
+
+    node_to_vertex_map = {}
+    for node in graph.nodes():
+        lat, lon = map_renderer.get_lat_lon_from_img_coords(node.x, node.y)
+
+        vertex_db = GraphVertexes(latitude=lat, longitude=lon)
+        graph_db.vertexes.append(vertex_db)
+        node_to_vertex_map[node] = vertex_db
+
+    for start_node, end_node, edge_data in graph.edges(data=True):
+        start_vertex_db = node_to_vertex_map[start_node]
+        end_vertex_db = node_to_vertex_map[end_node]
+
+        edge_db = GraphEdges(
+            start_vertex=start_vertex_db,
+            end_vertex=end_vertex_db,
+            distance=edge_data.get('distance'),
+            speed=edge_data.get('speed'),
+            weight=edge_data.get('weight'),
+            color=str(edge_data.get('color')),
+            angle_deviation=edge_data.get('angle_deviation')
+        )
+        graph_db.edges.append(edge_db)
+    try:
+        db.session.add(graph_db)
+        db.session.commit()
+        print(
+            f"Граф ID: {graph_db.graph_id} для результата кластеризации с hash_id: {analysis_hash_id} успешно сохранен: "
+            f"{len(graph_db.vertexes)} вершин и {len(graph_db.edges)} ребер.")
+        print(f'Время сохранения графа: {round(time.time() - start, 2)} сек.')
+        return graph_db.graph_id
+    except Exception as e:
+        db.session.rollback()
+        print(f"ОШИБКА при сохранении графа в БД: {e}")
+
+
+def get_hash_params(hash_id):
+    hash_obj = db.session.query(Hashes).filter_by(hash_id=hash_id).first()
+    return hash_obj.params
+
+
+def update_graph_edges(hash_id: int, new_params: dict, graph_nx: networkx.DiGraph):
+    start = time.time()
+    try:
+        hash_obj = db.session.get(Hashes, hash_id)
+        if hash_obj:
+            hash_obj.params = new_params
+            db.session.flush()
+
+        bulk_updates = []
+        for _, _, data in graph_nx.edges(data=True):
+            edge_id = data.get('edge_id')
+            if edge_id is not None:
+                bulk_updates.append({
+                    'edge_id': edge_id,
+                    'weight': data.get('weight')
+                })
+
+        if bulk_updates:
+            db.session.bulk_update_mappings(GraphEdges, bulk_updates)
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Ошибка при обновлении весов рёбер для графа с hash_id {hash_id}: {e}")
+    finally:
+        print(f'Время обновления весов: {round(time.time() - start, 2)} сек.')
+
+
+# Для малышей беспилотников, вроде работает
+def find_approved_graphs(start_coords: tuple, end_coords: tuple):
+    try:
+        start_lat, start_lon = start_coords
+        end_lat, end_lon = end_coords
+        start_x, start_y = mercantile.xy(start_lon, start_lat)
+        end_x, end_y = mercantile.xy(end_lon, end_lat)
+
+        graphs_db = db.session.query(Graphs).join(
+            ApprovedGraphs, ApprovedGraphs.graph_id == Graphs.graph_id
+        ).join(
+            Datasets, Datasets.id == Graphs.dataset_id
+        ).join(
+            Hashes, Hashes.hash_id == Graphs.hash_id
+        ).filter(
+            and_(
+                Datasets.extent_min_x <= start_x, start_x <= Datasets.extent_max_x,
+                Datasets.extent_min_y <= start_y, start_y <= Datasets.extent_max_y,
+                Datasets.extent_min_x <= end_x, end_x <= Datasets.extent_max_x,
+                Datasets.extent_min_y <= end_y, end_y <= Datasets.extent_max_y
+            )
+        ).order_by(
+            desc(Hashes.timestamp)
+        ).all()
+
+        if not graphs_db:
+            print("Совпадений не найдено. Точки не входят ни в одну утвержденную область.")
+            return None
+
+        results = []
+        print(f"Найдены одобренные графы (ID: {[graph_db.graph_id for graph_db in graphs_db]}).")
+        for graph_db in graphs_db:
+            results.append({'graph_params': graph_db.hash.params,
+                            'clustering_params': graph_db.dataset_analysis_link.analysis_hash.params,
+                            'cl_hash_id': graph_db.dataset_analysis_link.analysis_hash_id,
+                            'gr_hash_id': graph_db.hash_id})
+        return results
+    except Exception as e:
+        print(f"Произошла ошибка при поиске и загрузке графа: {e}")
+        return None

@@ -6,7 +6,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 
 from DataMovements.data_movements import load_positions_cleaned, check_clusters, \
-    store_clusters, store_avg_values, get_hash_value
+    store_clusters, store_avg_values, get_hash_value, get_ds_hash_id
 from Visualization.visualization import MapRenderer
 
 
@@ -22,7 +22,7 @@ def clustering(clustering_params):
     eps = float(clustering_params['eps'])
     min_samples = int(clustering_params['min_samples'])
     metric_degree = float(clustering_params['metric_degree'])
-    ds_hash_id = int(clustering_params['dataset_id'])
+    dataset_id = int(clustering_params['dataset_id'])
 
     clustering_params_for_hashing = {
         key: value for key, value in clustering_params.items() if key != 'hull_type'
@@ -39,7 +39,7 @@ def clustering(clustering_params):
         dbscan_time = 0
 
     else:
-        df = load_positions_cleaned(ds_hash_id)
+        df = load_positions_cleaned(dataset_id)
 
         df['sin_course'] = np.sin(np.deg2rad(df['course']))
         df['cos_course'] = np.cos(np.deg2rad(df['course']))
@@ -87,6 +87,7 @@ def clustering(clustering_params):
     # file_path = f'./static/images/clustered/clustered_{file_name}_eps_for_min_samples_{min_samples}.png'
     # plt.savefig(file_path)
 
+    ds_hash_id = get_ds_hash_id(dataset_id)
     ds_hash_value = get_hash_value(ds_hash_id)
     map_renderer = MapRenderer(west=min_lat, south=min_lon, east=max_lat, north=max_lon, zoom=12, df=df,
                                cl_hash_id=cl_hash_id, ds_hash_value=ds_hash_value)
