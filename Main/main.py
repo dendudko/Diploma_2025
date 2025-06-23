@@ -11,13 +11,13 @@ def call_clustering(clustering_params):
     return clustering(clustering_params)
 
 
-def call_find_path(graph_params, clustering_params, cl_hash_id):
-    return find_path(graph_params, clustering_params, cl_hash_id)
+def call_find_path(graph_params, clustering_params, cl_hash_id, gr_hash_id=None):
+    return find_path(graph_params, clustering_params, cl_hash_id, gr_hash_id)
 
 
 def load_clustering_params():
-    return {'weight_distance': 2.0, 'weight_speed': 1.0, 'weight_course': 4.0, 'eps': 0.28,
-            'min_samples': 50, 'metric_degree': 2.0, 'hull_type': 'convex_hull'}
+    return {'weight_distance': 3.5, 'weight_speed': 1.0, 'weight_course': 4.0, 'eps': 0.42,
+            'min_samples': 60, 'metric_degree': 2.0, 'hull_type': 'convex_hull'}
 
 
 def load_graph_params():

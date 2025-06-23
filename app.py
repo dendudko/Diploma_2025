@@ -6,8 +6,9 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
+from DataMovements.data_movements import fetch_datasets_for_user, delete_dataset_by_id, find_approved_graphs
 from DataMovements.model import db, User, Datasets
-from DataMovements.data_movements import fetch_datasets_for_user, delete_dataset_by_id
+from Helpers.web_helpers import create_success_response, create_error_response
 from Main.main import call_process_and_store_dataset, call_clustering, load_clustering_params, call_find_path, \
     load_graph_params
 
@@ -15,7 +16,7 @@ from Main.main import call_process_and_store_dataset, call_clustering, load_clus
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA foreign_keys=1;")
     cursor.close()
 
 
@@ -102,9 +103,17 @@ def get_clusters():
     return jsonify(clusters_data)
 
 
+def clean_session():
+    keys = 'cl_hash_id', 'clustering_params'
+    for key in keys:
+        if session.get(key):
+            session.pop(key)
+
+
 @app.route('/get_datasets')
 @login_required
 def get_datasets():
+    clean_session()
     datasets = fetch_datasets_for_user(current_user.id)
     return jsonify(datasets)
 
@@ -112,6 +121,7 @@ def get_datasets():
 @app.route('/choose_dataset', methods=['POST'])
 @login_required
 def choose_dataset():
+    clean_session()
     dataset_id = request.form.get('dataset_id')
     if not dataset_id:
         return jsonify(success=False, message='Датасет не выбран!')
@@ -175,6 +185,30 @@ def index():
                            int=int,
                            len=len
                            )
+
+
+@app.route('/api/find_drone_path', methods=['POST'])
+def find_drone_path():
+    data = request.get_json()
+    approved_graphs = find_approved_graphs(data['start_point'], data['end_point'])
+    if approved_graphs:
+        for i, approved_graph in enumerate(approved_graphs):
+            approved_graph['graph_params']['start_coords'] = data['start_point']
+            approved_graph['graph_params']['end_coords'] = data['end_point']
+            approved_graph['clustering_params']['hull_type'] = approved_graph['graph_params']['hull_type']
+            response = call_find_path(approved_graph['graph_params'],
+                                      approved_graph['clustering_params'],
+                                      approved_graph['cl_hash_id'],
+                                      approved_graph['gr_hash_id'])
+            if 'error' not in response.keys():
+                return create_success_response(response)
+            elif i == len(approved_graphs) - 1:
+                error = response.pop('error')
+                return create_error_response(response, error)
+    else:
+        return create_error_response({'start_point': data['start_point'],
+                                      'end_point': data['end_point']},
+                                     'These points are not included in any approved area.')
 
 
 if __name__ == '__main__':

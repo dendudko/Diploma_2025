@@ -43,25 +43,17 @@ backgroundImage.onload = function () {
 
     const pixelExtent = [0, 0, imageWidth, imageHeight];
     const pixelProjection = new ol.proj.Projection({
-        code: 'custom-pixel-map',
-        units: 'pixels',
-        extent: pixelExtent,
+        code: 'custom-pixel-map', units: 'pixels', extent: pixelExtent,
     });
 
     const map = new ol.Map({
         target: 'map',
         pixelRatio: 2,
-        layers: [
-            new ol.layer.Image({
-                name: 'Background',
-                source: new ol.source.ImageStatic({
-                    url: backgroundImageUrl,
-                    projection: pixelProjection,
-                    imageExtent: pixelExtent,
-                }),
-                opacity: 0.2
-            }),
-        ],
+        layers: [new ol.layer.Image({
+            name: 'Background', source: new ol.source.ImageStatic({
+                url: backgroundImageUrl, projection: pixelProjection, imageExtent: pixelExtent,
+            }), opacity: 0.2
+        }),],
         view: new ol.View({
             projection: pixelProjection,
             center: ol.extent.getCenter(pixelExtent),
@@ -70,10 +62,7 @@ backgroundImage.onload = function () {
             maxZoom: 4,
             extent: pixelExtent
         }),
-        controls: ol.control.defaults.defaults({attribution: false}).extend([
-            new ol.control.FullScreen(),
-            new ol.control.ZoomToExtent({extent: pixelExtent})
-        ])
+        controls: ol.control.defaults.defaults({attribution: false}).extend([new ol.control.FullScreen(), new ol.control.ZoomToExtent({extent: pixelExtent})])
     });
 
     map.addControl(new ol.control.LayerSwitcher({reverse: false}));
@@ -200,7 +189,8 @@ backgroundImage.onload = function () {
     // --- Обработка кнопки "Построить граф и проложить маршрут" ---
     async function createGraph() {
         if (!map.getLayers().getArray().some(l => l.get('name') === 'Polygons')) {
-            document.getElementById('do_cluster').style.cssText = 'box-shadow: 0px 0px 3px 3px #91B44AB2;';
+            // Убрал подсветку, и так же есть алерт...
+            // document.getElementById('do_cluster').style.cssText = 'box-shadow: 0px 0px 3px 3px #91B44AB2;';
             return alert("Сначала необходимо кластеризовать данные");
         }
         const fields = ['distance_delta', 'weight_func_degree', 'angle_of_vision', 'weight_time_graph', 'weight_course_graph', 'search_algorithm', 'start_coords', 'end_coords'];
@@ -225,10 +215,7 @@ backgroundImage.onload = function () {
             geographicExtent = data[2];
             map.getLayers().getArray().filter(l => l.get('name') === 'Graph').forEach(l => map.removeLayer(l));
             const graphLayer = await createImageLayer({
-                name: 'Graph',
-                url: data[0],
-                projection: pixelProjection,
-                imageExtent: pixelExtent
+                name: 'Graph', url: data[0], projection: pixelProjection, imageExtent: pixelExtent
             });
             map.addLayer(graphLayer);
             const backgroundLayer = map.getLayers().getArray().find(l => l.get('name') === 'Background');
@@ -246,6 +233,7 @@ backgroundImage.onload = function () {
             const graph_data = data[1];
             item.innerHTML = 'Error' in graph_data ? `<strong>${graph_data['Error']}</strong><br>` : Object.entries(graph_data).map(([key, value]) => `<strong>${key}</strong>: ${value}<br>`).join('');
             legendElement.appendChild(item);
+            console.log(data[3]);
         } catch (error) {
             const errorMessage = error.responseJSON?.error || error.statusText || "Неизвестная ошибка";
             alert(`Ошибка: ${errorMessage}`);
@@ -276,22 +264,11 @@ backgroundImage.onload = function () {
                 data: JSON.stringify(parameters)
             });
             geographicExtent = data[2];
-            const [clustersLayer, polygonsLayer] = await Promise.all([
-                createImageLayer({
-                    name: 'Clusters',
-                    url: data[0][0],
-                    visible: false,
-                    projection: pixelProjection,
-                    imageExtent: pixelExtent
-                }),
-                createImageLayer({
-                    name: 'Polygons',
-                    url: data[0][1],
-                    visible: true,
-                    projection: pixelProjection,
-                    imageExtent: pixelExtent
-                })
-            ]);
+            const [clustersLayer, polygonsLayer] = await Promise.all([createImageLayer({
+                name: 'Clusters', url: data[0][0], visible: false, projection: pixelProjection, imageExtent: pixelExtent
+            }), createImageLayer({
+                name: 'Polygons', url: data[0][1], visible: true, projection: pixelProjection, imageExtent: pixelExtent
+            })]);
             map.getLayers().getArray().filter(l => ["Clusters", "Polygons", "Graph", "StartPoint", "EndPoint", "Ships"].includes(l.get('name'))).forEach(l => map.removeLayer(l));
             map.addLayer(clustersLayer);
             map.addLayer(polygonsLayer);
@@ -323,15 +300,14 @@ backgroundImage.src = backgroundImageUrl;
 
 /**
  * =============================================================================
- *                      ЛОГИКА UI (НЕ ЗАВИСЯЩАЯ ОТ КАРТЫ)
+ *                      ЛОГИКА UI, НЕ ЗАВИСЯЩАЯ ОТ КАРТЫ
  * =============================================================================
  */
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('details').forEach(details => {
         details.addEventListener('click', e => {
             if (e.target.closest('summary, label, input, button, a')) return;
-            if (!details.open) details.open = true;
-            else e.preventDefault();
+            if (!details.open) details.open = true; else e.preventDefault();
         });
     });
 
@@ -400,11 +376,40 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    let selectedDatasetId = document.querySelector('input[name="dataset_id"]:checked')?.value || null;
+    let selectedDatasetId = null;
+    const errorEl = document.getElementById('dataset-error');
+    const successEl = document.getElementById('dataset-success');
+    const loadingEl = document.getElementById('dataset-loading');
 
-    /**
-     * Принудительно синхронизирует UI (класс .selected) с текущим состоянием (selectedDatasetId).
-     */
+    const chooseDataset = (datasetId) => {
+        if (!datasetId) {
+            console.error("ID датасета не был передан для выбора.");
+            return;
+        }
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        fetch('/choose_dataset', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+            body: 'dataset_id=' + encodeURIComponent(datasetId)
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    successEl.textContent = data.message;
+                    successEl.style.display = 'block';
+                } else {
+                    errorEl.textContent = data.message || 'Ошибка выбора датасета!';
+                    errorEl.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                errorEl.textContent = 'Ошибка соединения с сервером!';
+                errorEl.style.display = 'block';
+            })
+    };
+
     const highlightSelectedDataset = () => {
         document.querySelectorAll('.dataset-option').forEach(opt => {
             const input = opt.querySelector('input[name="dataset_id"]');
@@ -418,34 +423,28 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
-    /**
-     * Привязывает обработчики к radio-кнопкам.
-     */
     const attachDatasetHandlers = () => {
         document.querySelectorAll('input[name="dataset_id"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 selectedDatasetId = radio.value;
                 highlightSelectedDataset();
+                chooseDataset(selectedDatasetId); // <--- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
             });
         });
     };
 
-    /**
-     * Обновляет список датасетов с сервера, генерируя УНИФИЦИРОВАННЫЙ HTML.
-     */
     const updateDatasetList = () => {
         fetch('/get_datasets')
             .then(res => res.json())
             .then(data => {
-                const renderList = (container, datasets) => {
+                const renderList = (container, datasets, isMineTab) => {
+                    if (!container) return;
                     if (datasets.length === 0) {
-                        container.innerHTML = `<div>${container.id === 'tab-all' ? 'Нет доступных датасетов' : 'У вас нет своих датасетов'}</div>`;
+                        container.innerHTML = `<div>${isMineTab ? 'У Вас нет своих датасетов' : 'Нет доступных датасетов'}</div>`;
                         return;
                     }
                     container.innerHTML = datasets.map(ds => {
-                        const deleteButtonHtml = (container.id === 'tab-mine')
-                            ? `<button type="button" class="delete-dataset-btn" data-dataset-id="${ds.id}" title="Удалить датасет">&#10060;</button>`
-                            : '';
+                        const deleteButtonHtml = isMineTab ? `<button type="button" class="delete-dataset-btn" data-dataset-id="${ds.id}" title="Удалить датасет">&#10060;</button>` : '';
 
                         return `
                             <div class="dataset-option">
@@ -458,82 +457,37 @@ document.addEventListener('DOMContentLoaded', function () {
                     }).join('');
                 };
 
-                renderList(document.getElementById('tab-all'), data.all);
-                renderList(document.getElementById('tab-mine'), data.mine);
+                renderList(document.getElementById('tab-all'), data.all, false);
+                renderList(document.getElementById('tab-mine'), data.mine, true);
 
                 attachDatasetHandlers();
-                highlightSelectedDataset();
+                highlightSelectedDataset(); // Обновляем подсветку после ререндера
             });
     };
 
-    /**
-     * Переключает видимость вкладок.
-     */
     window.showTab = (tab) => {
         document.getElementById('tab-all').style.display = tab === 'all' ? '' : 'none';
         document.getElementById('tab-mine').style.display = tab === 'mine' ? '' : 'none';
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tab-btn[onclick*="'${tab}'"]`).classList.add('active');
-
-        // Принудительно обновляем подсветку при смене вкладки
-        highlightSelectedDataset();
+        highlightSelectedDataset(); // Обновляем подсветку при смене вкладки
     };
 
-    const datasetForm = document.getElementById('dataset-form');
-    if (datasetForm) {
-        datasetForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-            const errorEl = document.getElementById('dataset-error'),
-                successEl = document.getElementById('dataset-success');
-            [errorEl, successEl].forEach(el => el.style.display = 'none');
-            const selected = document.querySelector('input[name="dataset_id"]:checked');
-            if (!selected) {
-                errorEl.textContent = 'Пожалуйста, выберите датасет!';
-                return errorEl.style.display = 'block';
-            }
-            fetch('/choose_dataset', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
-                body: 'dataset_id=' + encodeURIComponent(selected.value)
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        successEl.textContent = data.message;
-                        successEl.style.display = 'block';
-                    } else {
-                        errorEl.textContent = data.message || 'Ошибка!';
-                        errorEl.style.display = 'block';
-                    }
-                })
-                .catch(() => {
-                    errorEl.textContent = 'Ошибка соединения с сервером!';
-                    errorEl.style.display = 'block';
-                });
-        });
-    }
-
-    attachDatasetHandlers();
-    highlightSelectedDataset();
-    showTab('all');
 
     document.body.addEventListener('click', function (event) {
         if (event.target.matches('.delete-dataset-btn')) {
             event.preventDefault();
             const button = event.target;
             const datasetId = button.dataset.datasetId;
-            const datasetOptionDiv = button.closest('.dataset-option');
-            const datasetName = datasetOptionDiv.querySelector('label').textContent;
+            const datasetName = button.closest('.dataset-option').querySelector('label').textContent;
 
             if (confirm(`Вы уверены, что хотите удалить датасет "${datasetName}"? Это действие необратимо.`)) {
-
-                const loadingEl = document.getElementById('dataset-loading');
-                const errorEl = document.getElementById('dataset-error');
-                const successEl = document.getElementById('dataset-success');
-
                 errorEl.style.display = 'none';
                 successEl.style.display = 'none';
-                loadingEl.style.display = 'block';
+                if (loadingEl) {
+                    loadingEl.textContent = 'Удаление...'
+                    loadingEl.style.display = 'block';
+                }
 
                 fetch('/delete_dataset', {
                     method: 'POST',
@@ -545,6 +499,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (data.success) {
                             successEl.textContent = data.message || 'Датасет успешно удален.';
                             successEl.style.display = 'block';
+                            // Если удаленный датасет был выбран, сбрасываем выбор
+                            if (selectedDatasetId === datasetId) {
+                                selectedDatasetId = null;
+                            }
                             updateDatasetList();
                         } else {
                             errorEl.textContent = data.message || 'Не удалось удалить датасет.';
@@ -555,13 +513,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         console.error('Ошибка при удалении датасета:', error);
                         errorEl.textContent = 'Ошибка соединения с сервером.';
                         errorEl.style.display = 'block';
-                    })
-                    .finally(() => {
-                        loadingEl.style.display = 'none';
-                    });
+                    }).finally(() => {
+                    if (loadingEl) loadingEl.style.display = 'none';
+                });
             }
         }
     });
+
+    updateDatasetList();
+    showTab('all');
+
 
     document.querySelectorAll('.file-input-hidden').forEach(function (input) {
         const label = input.nextElementSibling;

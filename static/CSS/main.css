@@ -16,7 +16,6 @@ body {
     right: 0;
 }
 
-/* Transparent Overlay */
 #loader:before {
     content: '';
     display: block;
@@ -29,7 +28,6 @@ body {
     left: 0;
 }
 
-/* Blue Circle */
 #loader:after {
     content: '';
     display: block;
@@ -48,7 +46,6 @@ body {
     animation: spin 2s linear infinite;
 }
 
-/* Animation */
 @keyframes spin {
     0% {
         transform: rotate(0deg);
@@ -58,7 +55,6 @@ body {
     }
 }
 
-/* Основной контейнер - две колонки: форма и карта */
 .container {
     display: flex;
     flex-direction: row;
@@ -68,7 +64,6 @@ body {
     color: #333;
 }
 
-/* Левая панель с параметрами */
 .input_block {
     width: 420px;
     padding: 10px 10px 5px 5px;
@@ -79,7 +74,6 @@ body {
     box-sizing: border-box;
 }
 
-/* Оформление блоков с details */
 details {
     margin-bottom: 10px;
     border: 1px solid #dcdcdc;
@@ -89,13 +83,12 @@ details {
     cursor: pointer;
 }
 
-/* Когда details открыт — курсор pointer только на summary */
 details[open] {
-    cursor: auto; /* весь details - обычный курсор */
+    cursor: auto;
 }
 
 details[open] > summary {
-    cursor: pointer; /* только summary - pointer */
+    cursor: pointer;
 }
 
 summary {
@@ -105,16 +98,14 @@ summary {
     margin-bottom: 8px;
 }
 
-/* Строка параметра: label и input/select в одну линию */
 .param-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin: 6px 0;
-    gap: 8px; /* немного пространства между label и input */
+    gap: 8px;
 }
 
-/* Метка параметра */
 .param-row label {
     flex: 1 1 60%;
     margin: 0;
@@ -124,7 +115,6 @@ summary {
     text-overflow: ellipsis;
 }
 
-/* Поля ввода и селекты */
 .param-row input,
 .param-row select {
     flex: 1 1 55%;
@@ -136,7 +126,7 @@ summary {
     box-sizing: border-box;
     background-color: #fff;
     transition: border-color 0.2s ease-in-out;
-    min-width: 0; /* важно для корректного сжатия */
+    min-width: 0;
     cursor: auto;
 }
 
@@ -148,7 +138,6 @@ summary {
     cursor: pointer;
 }
 
-/* При фокусе выделяем */
 .param-row input:focus,
 .param-row select:focus {
     border-color: #007bff;
@@ -165,11 +154,11 @@ summary {
     max-width: 100%;
     box-sizing: border-box;
 
-    padding: 6px 7px; /* вертикальные и горизонтальные отступы */
+    padding: 6px 7px;
     font-size: 1em;
 
-    white-space: normal; /* разрешаем перенос строк */
-    text-align: center; /* центрируем текст по горизонтали */
+    white-space: normal;
+    text-align: center;
     line-height: 1.3;
 
     cursor: pointer;
@@ -184,13 +173,11 @@ summary {
     background-color: #0056b3;
 }
 
-/* Правая часть с картой */
 .map_block {
     width: 100%;
     position: relative;
 }
 
-/* Карта занимает всю высоту и ширину */
 .map {
     width: 100%;
     height: 100vh;
@@ -236,17 +223,14 @@ summary {
     top: 6.2em;
 }
 
-/* Скрываем полосу прокрутки в параметрах, если не нужна */
 .input_block::-webkit-scrollbar {
     width: 0;
 }
 
-/* 1. Скрываем настоящий, некрасивый input[type="file"] */
 .file-input-hidden {
     display: none;
 }
 
-/* 2. Заголовок над полем загрузки */
 .upload-title {
     font-weight: 500;
     margin-bottom: 6px;
@@ -254,7 +238,6 @@ summary {
     color: black;
 }
 
-/* 3. Основной контейнер-обертка */
 .file-upload-label {
     display: flex;
     align-items: center;
@@ -267,14 +250,12 @@ summary {
     overflow: hidden;
 }
 
-/* Эффект при наведении, как у .dataset-option label:hover */
 .file-upload-label:hover {
     border-color: #b3d3ff;
 }
 
-/* 4. Стилизуем часть, которая выглядит как кнопка */
 .file-upload-button {
-    background-color: #fff; /* По умолчанию совпадает с фоном */
+    background-color: #fff;
     border-right: 1px solid #cfd8dc;
     padding: 6px 10px;
     font-size: 0.9em;
@@ -283,12 +264,10 @@ summary {
     transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 
-/* Эффект при наведении на кнопку */
 .file-upload-label:hover .file-upload-button {
-    background-color: #edf3ff; /* Как у .dataset-option label:hover */
+    background-color: #edf3ff;
 }
 
-/* 5. Место для отображения имени файла */
 .file-name {
     padding: 0 10px;
     font-size: 0.9em;
@@ -299,19 +278,18 @@ summary {
     flex-grow: 1;
 }
 
-/* 6. НОВЫЙ СТИЛЬ: Когда файл выбран, применяем стили "активного" элемента */
 .file-upload-label.file-chosen {
-    border-color: #007bff; /* Ярко-синяя рамка, как у выбранного датасета */
+    border-color: #007bff;
 }
 
 .file-upload-label.file-chosen .file-upload-button {
-    background-color: #e3f0ff; /* Светло-голубой фон, как у выбранного датасета */
-    color: #007bff; /* Ярко-синий текст */
+    background-color: #e3f0ff;
+    color: #007bff;
     border-color: #007bff;
 }
 
 .file-upload-label.file-chosen .file-name {
-    color: black; /* Делаем текст имени файла темнее, чтобы он не выглядел как placeholder */
+    color: black;
     font-weight: 500;
 }
 
@@ -332,6 +310,7 @@ summary {
     transition: all 0.3s ease-in-out;
     box-shadow: 0 5px 10px rgba(255, 62, 62, 0.5);
     float: right;
+    margin-bottom: 5px;
 }
 
 .logout-button .icon {
@@ -402,7 +381,6 @@ summary {
     color: #007bff;
 }
 
-/* --- Стили для опций датасетов (модифицировано) --- */
 .dataset-option {
     width: 100%;
     margin-bottom: 4px;
@@ -437,7 +415,6 @@ summary {
     user-select: none;
 }
 
-/* Стиль для ВЫБРАННОГО элемента */
 .dataset-option.selected .dataset-info label {
     background: #e3f0ff;
     border-color: #007bff;
@@ -445,15 +422,13 @@ summary {
     font-size: 0.95em;
 }
 
-/* Стиль для НАВЕДЕНИЯ на НЕВЫБРАННЫЙ элемент */
 .dataset-option:not(.selected) .dataset-info:hover label {
     background: #edf3ff;
     border-color: #b3d3ff;
 }
 
-/* --- НОВЫЕ СТИЛИ: для кнопки удаления --- */
 .delete-dataset-btn {
-    flex-shrink: 0; /* Запрещаем кнопке сжиматься */
+    flex-shrink: 0;
     background: none;
     border: none;
     padding: 0 5px;
@@ -461,17 +436,16 @@ summary {
     font-size: 16px;
     color: #999;
     transition: color 0.2s, transform 0.2s;
-    line-height: 1; /* Для лучшего вертикального выравнивания иконки */
+    line-height: 1;
 }
 
 .delete-dataset-btn:hover {
-    color: #c82333; /* Красный цвет при наведении */
+    color: #c82333;
     font-size: 18px;
 }
 
 
-/* --- Стили для сообщений (без изменений) --- */
-.dataset-message {
+.message {
     margin-top: 8px;
     display: none;
     font-size: 0.9em;

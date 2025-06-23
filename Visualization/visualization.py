@@ -1,10 +1,7 @@
 import concurrent.futures
-import io
 import math
 import os
-import random
 import time
-import urllib.request
 
 import mercantile
 import numpy as np
@@ -13,11 +10,15 @@ import shapely
 from cairo import ImageSurface, FORMAT_ARGB32, Context, LINE_JOIN_ROUND, LINE_CAP_ROUND, LinearGradient
 
 from DataMovements.data_movements import load_avg_values, load_polygon_geoms, store_polygon_geoms, store_extent
+from Helpers.data_helpers import format_coordinate
+from Helpers.vis_helpers import get_hours_minutes_str, generate_colors
+from Helpers.web_helpers import load_tile
 
 
 class MapRenderer:
     def __init__(self, west, south, east, north, zoom, df, cl_hash_id, ds_hash_value=None):
         # Задаваемые параметры
+        self.left_top = None
         self.west = west
         self.south = south
         self.east = east
@@ -45,7 +46,7 @@ class MapRenderer:
             self.noise_count = 0
         self.total_count = len(self.df)
         self.cluster_count = max(self.df['cluster']) + 1
-        self.colors = self.generate_colors(self.cluster_count)
+        self.colors = generate_colors(self.cluster_count)
         self.context = None
         self.map_image = None
 
@@ -57,71 +58,14 @@ class MapRenderer:
 
         self.geographic_extent_manual = None
 
-    @staticmethod
-    def generate_colors(num_colors):
-        colors = []
-        # Golden ratio
-        golden_ratio_conjugate = 0.618033988749895
-        h = 0.0
-        for i in range(num_colors):
-            r, g, b = 0, 0, 0
-            # HSL to RGB conversion
-            h += golden_ratio_conjugate
-            h %= 1
-            hue = 360 * h
-            saturation = 0.6
-            lightness = 0.6
-            c = (1 - abs(2 * lightness - 1)) * saturation
-            x = c * (1 - abs((hue / 60) % 2 - 1))
-            m = lightness - c / 2
-            if hue < 60:
-                r = c
-                g = x
-            elif hue < 120:
-                r = x
-                g = c
-            elif hue < 180:
-                g = c
-                b = x
-            elif hue < 240:
-                g = x
-                b = c
-            elif hue < 300:
-                r = x
-                b = c
-            else:
-                r = c
-                b = x
-            r, g, b = r + m, g + m, b + m
-            colors.append([r, g, b, 1])
-        return colors
-
-    @staticmethod
-    def load_tile(tile, min_x, min_y, tile_size, headers):
-        server = random.choice(['a', 'b', 'c'])
-        url = 'http://{server}.tile.openstreetmap.org/{zoom}/{x}/{y}.png'.format(
-            server=server,
-            zoom=tile.z,
-            x=tile.x,
-            y=tile.y
-        )
-        request = urllib.request.Request(url=url, headers=headers)
-        response = urllib.request.urlopen(request)
-        img = ImageSurface.create_from_png(io.BytesIO(response.read()))
-        return img, (tile.x - min_x) * tile_size[0], (tile.y - min_y) * tile_size[0]
-
-    @staticmethod
-    def delete_noise(df):
-        return df.loc[(df['cluster'] != -1)].dropna(axis=0).reset_index(drop=True)
-
     def calculate_points_on_image(self):
         if len(self.df_points_on_image) == 0:
             # Добавляем объекты с пересчитанными координатами в df_points_on_image
             # gps в web-mercator
             xy = [mercantile.xy(x, y) for x, y in zip(self.df.lat, self.df.lon)]
             # переводим x, y в координаты изображения
-            self.df_points_on_image.x = [(row[0] - self.left_top[0]) * self.kx for row in xy]
-            self.df_points_on_image.y = [(row[1] - self.left_top[1]) * self.ky for row in xy]
+            self.df_points_on_image.x = [(v[0] - self.left_top[0]) * self.kx for v in xy]
+            self.df_points_on_image.y = [(v[1] - self.left_top[1]) * self.ky for v in xy]
             self.df_points_on_image.speed = self.df.speed
             self.df_points_on_image.course = self.df.course
             self.df_points_on_image.cluster = self.df.cluster
@@ -346,7 +290,7 @@ class MapRenderer:
                        'Connection': 'keep-alive'}
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = [executor.submit(self.load_tile, tile, min_x, min_y, tile_size, headers) for tile in tiles]
+                futures = [executor.submit(load_tile, tile, min_x, min_y, tile_size, headers) for tile in tiles]
                 for future in concurrent.futures.as_completed(futures):
                     img, x, y = future.result()
                     ctx.set_source_surface(img, x, y)
@@ -451,28 +395,6 @@ class MapRenderer:
         lon, lat = mercantile.lnglat(web_x, web_y)
         return lat, lon
 
-    @staticmethod
-    def get_hours_minutes_str(time_parameter):
-        time_str = ''
-        hours = math.floor(time_parameter)
-        minutes = math.ceil((time_parameter % 1 * 60))
-        if hours > 0:
-            if 10 <= hours % 100 <= 20 or 5 <= hours % 10 <= 9 or hours % 10 == 0:
-                time_str += str(hours) + ' часов '
-            elif hours % 10 == 1:
-                time_str += str(hours) + ' час '
-            elif 2 <= hours % 10 <= 4:
-                time_str += str(hours) + ' часа '
-
-        if 10 <= minutes % 100 <= 20 or 5 <= minutes % 10 <= 9 or minutes % 10 == 0:
-            time_str += str(minutes) + ' минут'
-        elif minutes % 10 == 1:
-            time_str += str(minutes) + ' минута'
-        elif 2 <= minutes % 10 <= 4:
-            time_str += str(minutes) + ' минуты'
-
-        return time_str
-
     def show_start_and_end_points(self, start_point, end_point):
         self.context.set_line_width(0)
         self.context.set_source_rgba(255, 255, 255, 1)
@@ -486,7 +408,7 @@ class MapRenderer:
         self.context.arc(end_point.x, end_point.y, 6, 0 * math.pi / 180, 360 * math.pi / 180)
         self.context.fill()
 
-    def show_graph(self, graph, paths, build_graph_time, find_path_time, create_new_graph):
+    def show_graph(self, graph, paths, build_graph_time, find_path_time, create_new_graph, drone_mode=False):
         result_graph = {}
         for path in paths:
             # Отрисовка черной линии
@@ -550,10 +472,8 @@ class MapRenderer:
 
             angle_deviation_mean = angle_deviation_sum / (len(path) - 1)
 
-            path_log = [self.get_lat_lon_from_img_coords(point.x, point.y) for point in path]
-
             result_graph['Протяженность маршрута'] = f'{str(round(distance, 3))} (м. мили)'
-            result_graph['Примерное время прохождения маршрута'] = f'{self.get_hours_minutes_str(time_sum)}'
+            result_graph['Примерное время прохождения маршрута'] = f'{get_hours_minutes_str(time_sum)}'
             result_graph['Среднее отклонение от курсов на маршруте'] = f'{str(round(angle_deviation_mean, 1))}°'
             result_graph[
                 'Протяженность участков'] = f'{[round(distance, 3) for distance in distance_of_section]} (м. мили)'
@@ -561,11 +481,24 @@ class MapRenderer:
             result_graph[
                 'Отклонения от курсов на участках'] = f'{[round(angle, 1) for angle in angle_deviation_on_section]} (°)'
             result_graph['Характеристики графа'] = str(graph)
-            result_graph['Точки маршрута'] = str(path_log)
+            route_points = [[format_coordinate(c) for c in self.get_lat_lon_from_img_coords(point.x, point.y)]
+                            for point in path]
+            result_graph['Точки маршрута'] = str(route_points)
             result_graph['Время построения графа'] = str(build_graph_time) + ' (секунды)'
             if not create_new_graph:
                 result_graph['Время построения графа'] += ' *достроение'
             result_graph['Время планирования маршрута'] = str(find_path_time) + ' (секунды)'
+
+            if drone_mode:
+                drone_response = {
+                    "route_points": [[format_coordinate(c) for c in self.get_lat_lon_from_img_coords(point.x, point.y)]
+                                     for point in path],
+                    "route_length_miles": round(distance, 3),
+                    "route_duration_hours": round(time_sum, 2),
+                    "route_sections_speed_knots": [round(speed, 1) for speed in speed_on_section]
+                }
+                result_graph['drone'] = drone_response
+
         return result_graph
 
     # Возможно стоит убрать мелкие кластеры...
