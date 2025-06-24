@@ -6,8 +6,7 @@ import mpu
 import networkx
 import numpy as np
 import shapely
-from shapely.ops import nearest_points
-from shapely.ops import nearest_points
+import shapely.ops
 
 from DataMovements.data_movements import load_clusters, get_hash_value, get_ds_hash_id, store_graph, check_graph, \
     get_hash_params, update_graph_edges, load_graph
@@ -62,7 +61,7 @@ class GraphBuilder:
 
     def get_nearest_poly_point(self, point):
         polygon_union = [shapely.Polygon(polygon) for polygon in self.map_renderer.polygon_bounds.values()]
-        nearest_point = nearest_points(shapely.ops.unary_union(polygon_union), point)[0]
+        nearest_point = shapely.ops.nearest_points(shapely.ops.unary_union(polygon_union), point)[0]
         distance = self.get_edge_distance(point, nearest_point)
         self.graph.add_edge(point, nearest_point, weight=0, color=[1, 0, 0, 1], angle_deviation=0,
                             distance=distance, speed=15)
