@@ -388,3 +388,38 @@
 Доля шума: 5431 / 32587
 Время выполнения DBSCAN: 0 (секунды)
 
+Параметры для DBSCAN: {'weight_distance': '3.5', 'weight_speed': '1.0', 'weight_course': '4.0', 'eps': '0.41', 'min_samples': '60', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '3'}
+Всего кластеров: 21
+Доля шума: 5431 / 32587
+Время выполнения DBSCAN: 11.25 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '3.5', 'weight_speed': '1.0', 'weight_course': '4.0', 'eps': '0.41', 'min_samples': '60', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '3'}
+Всего кластеров: 21
+Доля шума: 5431 / 32587
+Время выполнения DBSCAN: 0 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '3.5', 'weight_speed': '1.0', 'weight_course': '4.0', 'eps': '0.41', 'min_samples': '60', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '3'}
+Всего кластеров: 21
+Доля шума: 5431 / 32587
+Время выполнения DBSCAN: 0 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '3.5', 'weight_speed': '1.0', 'weight_course': '4.0', 'eps': '0.42', 'min_samples': '60', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '5'}
+Всего кластеров: 12
+Доля шума: 5122 / 11487
+Время выполнения DBSCAN: 6.104 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '3.5', 'weight_speed': '1.0', 'weight_course': '4.0', 'eps': '0.5', 'min_samples': '60', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '5'}
+Всего кластеров: 12
+Доля шума: 3641 / 11487
+Время выполнения DBSCAN: 1.58 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '3.5', 'weight_speed': '1.0', 'weight_course': '4.0', 'eps': '0.6', 'min_samples': '60', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '5'}
+Всего кластеров: 11
+Доля шума: 2375 / 11487
+Время выполнения DBSCAN: 1.408 (секунды)
+
+Параметры для DBSCAN: {'weight_distance': '3.5', 'weight_speed': '1.0', 'weight_course': '4.0', 'eps': '0.65', 'min_samples': '60', 'metric_degree': '2.0', 'hull_type': 'concave_hull', 'dataset_id': '5'}
+Всего кластеров: 11
+Доля шума: 2046 / 11487
+Время выполнения DBSCAN: 1.363 (секунды)
+

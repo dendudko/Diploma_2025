@@ -17,7 +17,7 @@ def call_find_path(graph_params, clustering_params, cl_hash_id, gr_hash_id=None)
 
 def load_clustering_params():
     return {'weight_distance': 3.5, 'weight_speed': 1.0, 'weight_course': 4.0, 'eps': 0.42,
-            'min_samples': 60, 'metric_degree': 2.0, 'hull_type': 'convex_hull'}
+            'min_samples': 60, 'metric_degree': 2.0, 'hull_type': 'concave_hull'}
 
 
 def load_graph_params():
