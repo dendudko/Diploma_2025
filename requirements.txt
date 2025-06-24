@@ -13,3 +13,6 @@ flask_login~=0.6.3
 flask_sqlalchemy~=3.1.1
 joblib~=1.5.1
 SQLAlchemy~=2.0.41
+# Для переезда на PostgreSQL
+# psycopg2-binary~=2.9.10
+# python-dotenv~=1.1.0

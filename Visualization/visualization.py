@@ -169,10 +169,21 @@ class MapRenderer:
                                                  shapely.Polygon(self.polygon_bounds[key_j])))
 
             for key, intersection in self.intersections.items():
-                # Проверка, является ли i-ое intersection непустым (экземпляром класса Polygon)
                 if isinstance(intersection, shapely.Polygon):
                     a, b = intersection.exterior.coords.xy
                     self.intersection_bounds[key] = (tuple(list(zip(a, b))))
+                elif isinstance(intersection, shapely.Point):
+                    a, b = intersection.coords.xy
+                    self.intersection_bounds[key] = (tuple(list(zip(a, b))))
+                # Обработка множества пересечений двух полигонов при вогнутой оболочке
+                elif isinstance(intersection, (shapely.GeometryCollection, shapely.MultiPolygon)):
+                    for i, intersection_i in enumerate(intersection.geoms):
+                        if isinstance(intersection_i, shapely.Polygon):
+                            a, b = intersection_i.exterior.coords.xy
+                            self.intersection_bounds[key + (i,)] = tuple(list(zip(a, b)))
+                        elif isinstance(intersection_i, shapely.Point):
+                            a, b = intersection_i.coords.xy
+                            self.intersection_bounds[key + (i,)] = (tuple(list(zip(a, b))))
 
         for key, intersection_bound in self.intersection_bounds.items():
             red = 0
@@ -190,15 +201,30 @@ class MapRenderer:
         # Накидываем точки на границу пересечения полигонов
         if len(self.intersection_points) == 0:
             for key, intersection_bound in self.intersection_bounds.items():
-                distances = np.arange(0, shapely.LineString(intersection_bound).length, distance_delta)
-                self.intersection_points.extend(
-                    [shapely.LineString(intersection_bound).interpolate(distance) for distance in
-                     distances])
+                if len(intersection_bound) > 1:
+                    distances = np.arange(0, shapely.LineString(intersection_bound).length, distance_delta)
+                    self.intersection_points.extend(
+                        [shapely.LineString(intersection_bound).interpolate(distance) for distance in
+                         distances])
+                else:
+                    self.intersection_points.append(shapely.Point(intersection_bound))
 
             if self.graph_params['points_inside']:
-                # Добавляем точки внутрь пересечений полигонов
-                for key in self.intersection_bounds.keys():
-                    x_min, y_min, x_max, y_max = self.intersections[key].bounds
+                try:
+                    def flatten_geometrycollection(geom):
+                        if isinstance(geom, (shapely.GeometryCollection, shapely.MultiPolygon, shapely.MultiPoint)):
+                            flattened_list = []
+                            for g in geom.geoms:
+                                flattened_list.extend(flatten_geometrycollection(g))
+                            return flattened_list
+                        else:
+                            return [geom]
+
+                    gc = shapely.GeometryCollection(list(self.intersections.values()))
+                    flat_gc = flatten_geometrycollection(gc)
+                    all_intersections = shapely.GeometryCollection(flat_gc)
+
+                    x_min, y_min, x_max, y_max = all_intersections.bounds
                     current_y = y_min - distance_delta
                     calculated_points = []
                     while current_y <= y_max:
@@ -208,10 +234,15 @@ class MapRenderer:
                             current_x += distance_delta
                             calculated_points.append(shapely.Point(current_x, current_y))
                     calculated_multi_point = shapely.MultiPoint(calculated_points)
-                    actual_multi_point = self.intersections[key].intersection(calculated_multi_point)
-                    if isinstance(actual_multi_point, shapely.MultiPoint):
-                        actual_multi_point = actual_multi_point.geoms
-                        self.intersection_points.extend(actual_multi_point)
+                    actual_multi_point = shapely.MultiPoint(
+                        [point for point in set(flatten_geometrycollection(
+                            shapely.GeometryCollection(
+                                [i.intersection(calculated_multi_point) for i in all_intersections.geoms]))) if
+                         not point.is_empty])
+                    actual_multi_point = actual_multi_point.geoms
+                    self.intersection_points.extend(actual_multi_point)
+                except Exception as exc:
+                    print(f'При добавлении точек внутрь пересечений что-то пошло не так:\n{str(exc)}')
 
         for point in self.intersection_points:
             self.context.set_line_width(1.5)
@@ -504,8 +535,6 @@ class MapRenderer:
     # Возможно стоит убрать мелкие кластеры...
     def create_clustered_map(self, dbscan_time):
         result_clustering = {}
-        # Удаляю шум, не уверен, стоит ли
-        # self.delete_noise()
         img_paths = []
         for save_mode in 'clusters', 'polygons':
             self.create_empty_map()

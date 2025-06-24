@@ -6,8 +6,7 @@ import mpu
 import networkx
 import numpy as np
 import shapely
-from shapely.ops import nearest_points
-from shapely.ops import nearest_points
+import shapely.ops
 
 from DataMovements.data_movements import load_clusters, get_hash_value, get_ds_hash_id, store_graph, check_graph, \
     get_hash_params, update_graph_edges, load_graph
@@ -62,7 +61,7 @@ class GraphBuilder:
 
     def get_nearest_poly_point(self, point):
         polygon_union = [shapely.Polygon(polygon) for polygon in self.map_renderer.polygon_bounds.values()]
-        nearest_point = nearest_points(shapely.ops.unary_union(polygon_union), point)[0]
+        nearest_point = shapely.ops.nearest_points(shapely.ops.unary_union(polygon_union), point)[0]
         distance = self.get_edge_distance(point, nearest_point)
         self.graph.add_edge(point, nearest_point, weight=0, color=[1, 0, 0, 1], angle_deviation=0,
                             distance=distance, speed=15)
@@ -214,6 +213,13 @@ class GraphBuilder:
                 paths.append(networkx.bidirectional_dijkstra(self.graph, start_point, end_point)[1])
             elif self.map_renderer.graph_params['search_algorithm'] == 'A*':
                 paths.append(networkx.astar_path(self.graph, start_point, end_point, heuristic=astar_heuristic))
+
+            max_miles_outside_polygon = 2.5
+            if not end_point_in_poly or not start_point_in_poly:
+                for path in paths:
+                    if self.graph.get_edge_data(path[0], path[1])['distance'] > max_miles_outside_polygon or \
+                            self.graph.get_edge_data(path[-2], path[-1])['distance'] > max_miles_outside_polygon:
+                        raise networkx.exception.NetworkXNoPath
 
             find_path_time = round(time.time() - find_path_start_time, 3)
 

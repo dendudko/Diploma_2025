@@ -340,7 +340,7 @@ def delete_dataset_by_id(dataset_id, current_user_id):
         db.session.delete(dataset_to_delete)
 
         db.session.commit()
-        print(f"Датасет '{dataset_name}' и его дочерние записи (результаты кластеризации, графы) успешно удалены.")
+        print(f"Датасет '{dataset_name}' и его дочерние записи успешно удалены.")
 
         if hashes_to_check_later:
             print(f"Проверка на осиротевшие хэши: {list(hashes_to_check_later)}")

@@ -10,7 +10,7 @@ class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
     datasets = db.relationship('Datasets', back_populates='user', cascade="all, delete-orphan", passive_deletes=True)
 
     def set_password(self, password):
@@ -130,7 +130,7 @@ class ClAverageValues(db.Model):
 class ClPolygons(db.Model):
     __tablename__ = 'cl_polygons'
     polygon_point_id = db.Column(db.Integer, primary_key=True)
-    hash_id = db.Column(db.String(64), nullable=False)
+    hash_id = db.Column(db.Integer, nullable=False)
     cluster_num = db.Column(db.Integer, nullable=False)
     x = db.Column(db.Float, nullable=False)
     y = db.Column(db.Float, nullable=False)
