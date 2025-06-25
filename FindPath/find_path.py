@@ -215,10 +215,13 @@ class GraphBuilder:
                 paths.append(networkx.astar_path(self.graph, start_point, end_point, heuristic=astar_heuristic))
 
             max_miles_outside_polygon = 2.5
-            if not end_point_in_poly or not start_point_in_poly:
+            if not start_point_in_poly:
                 for path in paths:
-                    if self.graph.get_edge_data(path[0], path[1])['distance'] > max_miles_outside_polygon or \
-                            self.graph.get_edge_data(path[-2], path[-1])['distance'] > max_miles_outside_polygon:
+                    if self.graph.get_edge_data(path[0], path[1])['distance'] > max_miles_outside_polygon:
+                        raise networkx.exception.NetworkXNoPath
+            if not end_point_in_poly:
+                for path in paths:
+                    if self.graph.get_edge_data(path[-2], path[-1])['distance'] > max_miles_outside_polygon:
                         raise networkx.exception.NetworkXNoPath
 
             find_path_time = round(time.time() - find_path_start_time, 3)

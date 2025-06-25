@@ -9,8 +9,8 @@ from sqlalchemy.engine import Engine
 from DataMovements.data_movements import fetch_datasets_for_user, delete_dataset_by_id, find_approved_graphs
 from DataMovements.model import db, User, Datasets
 from Helpers.web_helpers import create_success_response, create_error_response
-from Main.main import call_process_and_store_dataset, call_clustering, load_clustering_params, call_find_path, \
-    load_graph_params
+from Main.main import (call_process_and_store_dataset, call_clustering,
+                       load_clustering_params, call_find_path, load_graph_params)
 
 
 @event.listens_for(Engine, "connect")
