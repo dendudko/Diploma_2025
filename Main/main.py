@@ -3,8 +3,10 @@ from FindPath.find_path import find_path
 from DataMovements.data_movements import process_and_store_dataset
 
 
-def call_process_and_store_dataset(file_positions, file_marine, dataset_name, user_id, interpolation, max_gap_minutes):
-    return process_and_store_dataset(file_positions, file_marine, dataset_name, user_id, interpolation, max_gap_minutes)
+def call_process_and_store_dataset(file_positions, file_marine, dataset_name, user_id, interpolation, algorithm,
+                                   max_gap_minutes):
+    return process_and_store_dataset(file_positions, file_marine, dataset_name, user_id, interpolation, algorithm,
+                                     max_gap_minutes)
 
 
 def call_clustering(clustering_params):

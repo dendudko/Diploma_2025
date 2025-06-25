@@ -147,6 +147,7 @@ def upload_dataset():
     dataset_name = request.form.get('dataset-name')
     interpolation = request.form.get('interpolation')
     max_gap_minutes = request.form.get('max_gap_minutes')
+    algorithm = request.form.get('interpolation_algorithm')
     user_id = current_user.id
 
     if not file_positions or not file_marine:
@@ -157,6 +158,7 @@ def upload_dataset():
                                                       dataset_name,
                                                       user_id,
                                                       interpolation,
+                                                      algorithm,
                                                       max_gap_minutes)
 
     return jsonify(success=success, message=message)

@@ -503,10 +503,11 @@ input:checked + .slider:before {
     transition: color 0.2s;
 }
 
-.param-row input:disabled {
+.param-row input:disabled, .param-row select:disabled {
     background: #f3f3f3;
     color: #b0b0b0;
     border-color: #e0e0e0;
+    opacity: 1;
 }
 
 .coord-input-wrapper {

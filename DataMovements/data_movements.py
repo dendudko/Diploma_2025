@@ -8,6 +8,7 @@ import networkx
 import numpy as np
 import pandas as pd
 import shapely
+from scipy.interpolate import CubicSpline
 from sqlalchemy import and_, desc
 
 from DataMovements.model import db, Hashes, Datasets, PositionsCleaned, Clusters, ClusterMembers, DatasetAnalysisLink, \
@@ -71,7 +72,147 @@ def store_dataset(df: pd.DataFrame, dataset_name, user_id, hash_value):
     db.session.commit()
 
 
-def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpolation, max_gap_minutes: int = 30):
+def haversine_distance(lon1, lat1, lon2, lat2):
+    """Вычисляет расстояние между двумя точками на сфере (в км)."""
+    R = 6371  # Радиус Земли в км
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
+    c = 2 * np.arcsin(np.sqrt(a))
+    return R * c
+
+
+def spline_interpolation(df: pd.DataFrame, max_gap_minutes: int) -> pd.DataFrame:
+    """
+    Выполняет интерполяцию траектории с помощью сплайнов,
+    размещая точки на поминутной временной сетке и обрабатывая разрывы.
+    """
+    df = df.sort_values('timestamp').reset_index(drop=True)
+    if len(df) < 2:
+        return df  # Возвращаем оригинальные данные, если их слишком мало для интерполяции
+
+    # 1. Разделение траектории на сегменты по временным разрывам
+    time_diffs = df['timestamp'].diff().dt.total_seconds() / 60
+    df['gap_group'] = (time_diffs > max_gap_minutes).cumsum()
+
+    final_segments = []
+    # 2. Применяем сплайн-интерполяцию к каждому сегменту отдельно
+    for _, group in df.groupby('gap_group'):
+        group = group.reset_index(drop=True)
+        if len(group) < 2:
+            final_segments.append(group)  # Сохраняем сегмент как есть
+            continue
+
+        # Шаги 3-8: такие же, как раньше, для генерации интерполированных точек
+        distances = [0]
+        for i in range(1, len(group)):
+            dist = haversine_distance(group.loc[i - 1, 'lon'], group.loc[i - 1, 'lat'], group.loc[i, 'lon'],
+                                      group.loc[i, 'lat'])
+            distances.append(distances[-1] + dist)
+        group['distance'] = distances
+
+        group_no_duplicates = group.drop_duplicates(subset='distance').reset_index(drop=True)
+        if len(group_no_duplicates) < 2:
+            final_segments.append(group)
+            continue
+
+        cs_lat = CubicSpline(group_no_duplicates['distance'], group_no_duplicates['lat'])
+        cs_lon = CubicSpline(group_no_duplicates['distance'], group_no_duplicates['lon'])
+
+        start_time = group['timestamp'].min()
+        end_time = group['timestamp'].max()
+        if start_time == end_time:
+            final_segments.append(group)
+            continue
+
+        target_time_grid = pd.date_range(start=start_time, end=end_time, freq='1min')
+
+        original_times_sec = (group_no_duplicates['timestamp'] - start_time).dt.total_seconds()
+        target_times_sec = (target_time_grid - start_time).total_seconds()
+        new_distances = np.interp(target_times_sec, original_times_sec, group_no_duplicates['distance'])
+
+        new_lat = cs_lat(new_distances)
+        new_lon = cs_lon(new_distances)
+        new_speeds = np.interp(new_distances, group_no_duplicates['distance'], group_no_duplicates['speed'])
+
+        course_rad = np.deg2rad(group_no_duplicates['course'])
+        course_x = np.cos(course_rad)
+        course_y = np.sin(course_rad)
+        new_course_x = np.interp(new_distances, group_no_duplicates['distance'], course_x)
+        new_course_y = np.interp(new_distances, group_no_duplicates['distance'], course_y)
+        new_course_rad = np.arctan2(new_course_y, new_course_x)
+        new_courses = np.rad2deg(new_course_rad) % 360
+
+        interp_df = pd.DataFrame({
+            'timestamp': target_time_grid,
+            'lat': new_lat,
+            'lon': new_lon,
+            'speed': new_speeds,
+            'course': new_courses,
+            'id_marine': group['id_marine'].iloc[0]
+        })
+
+        # ШАГ 9: ОБЪЕДИНЕНИЕ И УДАЛЕНИЕ ДУБЛИКАТОВ
+        # Мы объединяем сгенерированные точки с оригинальными.
+        # keep='first' означает, что если временная метка совпадает,
+        # приоритет будет у точки из 'group' (оригинальной).
+        combined_df = pd.concat([group.drop(columns=['gap_group', 'distance']), interp_df])
+
+        # Сортируем по времени и удаляем дубликаты, сохраняя оригиналы
+        combined_df = combined_df.sort_values('timestamp').drop_duplicates(subset='timestamp', keep='first')
+
+        final_segments.append(combined_df)
+
+    if not final_segments:
+        return df  # Если ничего не было обработано, возвращаем оригинал
+
+    return pd.concat(final_segments, ignore_index=True)
+
+
+def linear_interpolation(df_data: pd.DataFrame, max_gap_minutes: int) -> pd.DataFrame:
+    result = []
+    for ship_id, group in df_data.groupby('id_marine'):
+        full_time = pd.date_range(group['timestamp'].min(), group['timestamp'].max(), freq='1min')
+        group = group.set_index('timestamp').reindex(full_time)
+        group['id_marine'] = ship_id
+        result.append(group)
+    df_data = pd.concat(result)
+    df_data.index.name = 'timestamp'
+    df_data = df_data.sort_values(['id_marine', 'timestamp'])
+
+    def interpolate_with_gap(g):
+        orig = g[g[['lat', 'lon', 'speed', 'course']].notna().all(axis=1)]
+        time_diff = orig.index.to_series().diff().dt.total_seconds() / 60
+        group_id = (time_diff > max_gap_minutes).cumsum().reindex(g.index, method='ffill').fillna(0).astype(int)
+        g['gap_group'] = group_id.values
+
+        for col in ['lat', 'lon', 'speed']:
+            for grp, sub_g in g.groupby('gap_group'):
+                mask = sub_g[[col]].notna().any(axis=1)
+                if mask.sum() >= 2:
+                    g.loc[sub_g.index, col] = sub_g[col].interpolate(method='time')
+
+        for grp, sub_g in g.groupby('gap_group'):
+            mask = sub_g[['course']].notna().any(axis=1)
+            if mask.sum() >= 2:
+                sin_course = np.sin(np.deg2rad(sub_g['course']))
+                cos_course = np.cos(np.deg2rad(sub_g['course']))
+                sin_course_interp = sin_course.interpolate(method='time')
+                cos_course_interp = cos_course.interpolate(method='time')
+                course_interp = np.rad2deg(np.arctan2(sin_course_interp, cos_course_interp))
+                course_interp = (course_interp + 360) % 360
+                g.loc[sub_g.index, 'course'] = course_interp
+
+        g = g.drop(['gap_group'], axis=1)
+        return g
+
+    df_data = df_data.groupby('id_marine').apply(interpolate_with_gap)
+    return df_data
+
+
+def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpolation, algorithm,
+                              max_gap_minutes: int = 30):
     try:
         df_data = read_csv_or_xlsx(df_data)
         df_marine = read_csv_or_xlsx(df_marine)
@@ -108,43 +249,12 @@ def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpo
         df_data = df_data.sort_values(['id_marine', 'timestamp'])
 
         if interpolation:
-            result = []
-            for ship_id, group in df_data.groupby('id_marine'):
-                full_time = pd.date_range(group['timestamp'].min(), group['timestamp'].max(), freq='1min')
-                group = group.set_index('timestamp').reindex(full_time)
-                group['id_marine'] = ship_id
-                result.append(group)
-            df_data = pd.concat(result)
-            df_data.index.name = 'timestamp'
-            df_data = df_data.sort_values(['id_marine', 'timestamp'])
-
-            def interpolate_with_gap(g):
-                orig = g[g[['lat', 'lon', 'speed', 'course']].notna().all(axis=1)]
-                time_diff = orig.index.to_series().diff().dt.total_seconds() / 60
-                group_id = (time_diff > max_gap_minutes).cumsum().reindex(g.index, method='ffill').fillna(0).astype(int)
-                g['gap_group'] = group_id.values
-
-                for col in ['lat', 'lon', 'speed']:
-                    for grp, sub_g in g.groupby('gap_group'):
-                        mask = sub_g[[col]].notna().any(axis=1)
-                        if mask.sum() >= 2:
-                            g.loc[sub_g.index, col] = sub_g[col].interpolate(method='time')
-
-                for grp, sub_g in g.groupby('gap_group'):
-                    mask = sub_g[['course']].notna().any(axis=1)
-                    if mask.sum() >= 2:
-                        sin_course = np.sin(np.deg2rad(sub_g['course']))
-                        cos_course = np.cos(np.deg2rad(sub_g['course']))
-                        sin_course_interp = sin_course.interpolate(method='time')
-                        cos_course_interp = cos_course.interpolate(method='time')
-                        course_interp = np.rad2deg(np.arctan2(sin_course_interp, cos_course_interp))
-                        course_interp = (course_interp + 360) % 360
-                        g.loc[sub_g.index, 'course'] = course_interp
-
-                g = g.drop(['gap_group'], axis=1)
-                return g
-
-            df_data = df_data.groupby('id_marine').apply(interpolate_with_gap)
+            if algorithm == 'spline':
+                df_data = (df_data.groupby('id_marine', group_keys=False).apply(
+                    lambda g: spline_interpolation(g, max_gap_minutes)))
+            elif algorithm == 'linear':
+                df_data = linear_interpolation(df_data, max_gap_minutes)
+            df_data = df_data.reset_index(drop=True)
 
         df_data = df_data[['lat', 'lon', 'speed', 'course']].dropna(axis=0).drop_duplicates()
         df_data = df_data.rename(columns={'lat': 'latitude', 'lon': 'longitude'})

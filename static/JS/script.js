@@ -319,21 +319,31 @@ document.addEventListener('DOMContentLoaded', function () {
     if (interpolationSwitch) {
         const maxGapInput = document.getElementById('max_gap_minutes');
         const maxGapLabel = document.getElementById('max_gap_label');
+        const interpolationAlgorithmSelect = document.getElementById('interpolation_algorithm');
+        const interpolationAlgorithmLabel = document.getElementById('interpolation_algorithm_label');
         let lastValue = maxGapInput.value;
-        const updateMaxGapState = () => {
+
+        const updateInterpolationControls = () => {
             if (interpolationSwitch.checked) {
                 maxGapInput.disabled = false;
                 maxGapInput.value = lastValue || 30;
                 maxGapLabel.classList.remove('disabled-label');
+
+                interpolationAlgorithmSelect.disabled = false;
+                interpolationAlgorithmLabel.classList.remove('disabled-label');
             } else {
                 lastValue = maxGapInput.value;
                 maxGapInput.disabled = true;
                 maxGapInput.value = '';
                 maxGapLabel.classList.add('disabled-label');
+
+                interpolationAlgorithmSelect.disabled = true;
+                interpolationAlgorithmLabel.classList.add('disabled-label');
             }
         };
-        interpolationSwitch.addEventListener('change', updateMaxGapState);
-        updateMaxGapState();
+
+        interpolationSwitch.addEventListener('change', updateInterpolationControls);
+        updateInterpolationControls();
     }
 
     const uploadBtn = document.getElementById('upload-btn');

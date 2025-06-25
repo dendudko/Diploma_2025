@@ -44,6 +44,13 @@
                     </label>
                 </div>
                 <div class="param-row">
+                    <label for="interpolation_algorithm" id="interpolation_algorithm_label">interpolation_algorithm</label>
+                    <select id="interpolation_algorithm" name="interpolation_algorithm">
+                        <option value="linear" selected>Linear</option>
+                        <option value="spline">Spline</option>
+                    </select>
+                </div>
+                <div class="param-row">
                     <label for="max_gap_minutes" id="max_gap_label">max_gap_minutes</label>
                     <input type="number" step="1" min="1" value="30" id="max_gap_minutes" name="max_gap_minutes">
                 </div>
