@@ -226,7 +226,7 @@ def process_and_store_dataset(df_data, df_marine, dataset_name, user_id, interpo
             max_gap_minutes = int(max_gap_minutes)
 
         hash_value = hashlib.md5(
-            (df_data.to_csv() + df_marine.to_csv() + str(interpolation) + str(max_gap_minutes)).encode(
+            (df_data.to_csv() + df_marine.to_csv() + str(interpolation) + str(max_gap_minutes) + str(algorithm)).encode(
                 'utf-8')).hexdigest()
 
         result_integrity_check = integrity_check(hash_value, dataset_name)
