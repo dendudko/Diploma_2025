@@ -15,7 +15,7 @@
    4. <code>pip install -r requirements.txt</code> - установка библиотек
    5. <code>flask run</code> - запуск веб-приложения Flask 
    6. Приложение доступно локально по адресу http://127.0.0.1:5000
-4. Введите следующие команды, если при установке библиотек что-то пошло не так
+4. Введите следующие команды, если при установке библиотек что-то пошло не так:
    1. <code>sudo apt install build-essential libcairo2-dev pkg-config python3-dev</code> - необязательная команда, должна помочь, если pycairo так и не сможет установиться
    2. <code>[ -d "$HOME/.local/bin" ] && PATH="$HOME/.local/bin:$PATH"</code> - добавление пути до установленных библиотек в переменную PATH
    3. <code>echo "export PATH="$PATH >> ~/.bashrc && source ~/.bashrc</code> - сохранение переменной PATH
