@@ -73,8 +73,7 @@ def store_dataset(df: pd.DataFrame, dataset_name, user_id, hash_value):
 
 
 def haversine_distance(lon1, lat1, lon2, lat2):
-    """Вычисляет расстояние между двумя точками на сфере (в км)."""
-    R = 6371  # Радиус Земли в км
+    R = 6371
     lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
     dlon = lon2 - lon1
     dlat = lat2 - lat1
@@ -84,27 +83,20 @@ def haversine_distance(lon1, lat1, lon2, lat2):
 
 
 def spline_interpolation(df: pd.DataFrame, max_gap_minutes: int) -> pd.DataFrame:
-    """
-    Выполняет интерполяцию траектории с помощью сплайнов,
-    размещая точки на поминутной временной сетке и обрабатывая разрывы.
-    """
     df = df.sort_values('timestamp').reset_index(drop=True)
     if len(df) < 2:
-        return df  # Возвращаем оригинальные данные, если их слишком мало для интерполяции
+        return df
 
-    # 1. Разделение траектории на сегменты по временным разрывам
     time_diffs = df['timestamp'].diff().dt.total_seconds() / 60
     df['gap_group'] = (time_diffs > max_gap_minutes).cumsum()
 
     final_segments = []
-    # 2. Применяем сплайн-интерполяцию к каждому сегменту отдельно
     for _, group in df.groupby('gap_group'):
         group = group.reset_index(drop=True)
         if len(group) < 2:
-            final_segments.append(group)  # Сохраняем сегмент как есть
+            final_segments.append(group)
             continue
 
-        # Шаги 3-8: такие же, как раньше, для генерации интерполированных точек
         distances = [0]
         for i in range(1, len(group)):
             dist = haversine_distance(group.loc[i - 1, 'lon'], group.loc[i - 1, 'lat'], group.loc[i, 'lon'],
@@ -153,19 +145,13 @@ def spline_interpolation(df: pd.DataFrame, max_gap_minutes: int) -> pd.DataFrame
             'id_marine': group['id_marine'].iloc[0]
         })
 
-        # ШАГ 9: ОБЪЕДИНЕНИЕ И УДАЛЕНИЕ ДУБЛИКАТОВ
-        # Мы объединяем сгенерированные точки с оригинальными.
-        # keep='first' означает, что если временная метка совпадает,
-        # приоритет будет у точки из 'group' (оригинальной).
         combined_df = pd.concat([group.drop(columns=['gap_group', 'distance']), interp_df])
-
-        # Сортируем по времени и удаляем дубликаты, сохраняя оригиналы
         combined_df = combined_df.sort_values('timestamp').drop_duplicates(subset='timestamp', keep='first')
 
         final_segments.append(combined_df)
 
     if not final_segments:
-        return df  # Если ничего не было обработано, возвращаем оригинал
+        return df
 
     return pd.concat(final_segments, ignore_index=True)
 
