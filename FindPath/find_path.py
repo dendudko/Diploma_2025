@@ -158,86 +158,102 @@ class GraphBuilder:
         end_point_saved = None
         graph_id = None
         points_to_delete = []
+        start_interesting_points = end_interesting_points = 0
         # Обработка случая, когда точка А или Б не попала в полигон
         # Предполагаем, что скорость в таком случае 30 узлов
-        end_point_in_poly = False
-        start_point_in_poly = False
-        for key in self.map_renderer.polygon_bounds.keys():
-            if shapely.intersects(self.map_renderer.polygon_buffers[key], end_point):
-                end_point_in_poly = True
-            if shapely.intersects(self.map_renderer.polygon_buffers[key], start_point):
-                start_point_in_poly = True
-
-        if not start_point_in_poly:
-            current_point = self.get_nearest_poly_point(start_point)
-            points_to_delete.append(current_point)
-        else:
-            current_point = start_point
-        points_to_delete.append(start_point)
-
-        if not end_point_in_poly:
-            end_point_saved = end_point
-            end_point = self.get_nearest_poly_point(end_point)
-            points_to_delete.append(end_point)
-        points_to_delete.append(end_point_saved)
-
-        # Если точки лежат в полигонах - добавляем их в точки пересечений (множество узлов)
-        # Если не лежат - добавляем в точки пересечений ближайшие точки полигонов,
-        # сами точки начала и конца будут только в графе
-        if current_point not in self.map_renderer.intersection_points:
-            self.map_renderer.intersection_points.append(current_point)
-        if end_point not in self.map_renderer.intersection_points:
-            self.map_renderer.intersection_points.append(end_point)
-        self.graph.add_node(start_point)
-        self.graph.add_node(end_point)
-
-        start_interesting_points = self.visit_point(current_point)
-        end_interesting_points = self.visit_point(end_point, rotation=180)
-
-        if end_interesting_points != 0 and start_interesting_points != 0 and create_new_graph:
-            for point in self.map_renderer.intersection_points:
-                self.visit_point(point)
-
-        if end_point_saved:
-            end_point = end_point_saved
-
-        build_graph_time = round(time.time() - build_graph_start_time, 3)
-
-        # Вызов A* и Дейкстры, отрисовка пути
         try:
+            if start_point == end_point:
+                raise networkx.NetworkXNoPath('start_point = end_point.')
+
+            end_point_in_poly = False
+            start_point_in_poly = False
+            for key in self.map_renderer.polygon_bounds.keys():
+                if shapely.intersects(self.map_renderer.polygon_buffers[key], end_point):
+                    end_point_in_poly = True
+                if shapely.intersects(self.map_renderer.polygon_buffers[key], start_point):
+                    start_point_in_poly = True
+
+            if not start_point_in_poly:
+                current_point = self.get_nearest_poly_point(start_point)
+                points_to_delete.append(current_point)
+            else:
+                current_point = start_point
+            points_to_delete.append(start_point)
+
+            if not end_point_in_poly:
+                end_point_saved = end_point
+                end_point = self.get_nearest_poly_point(end_point)
+                points_to_delete.append(end_point)
+            points_to_delete.append(end_point_saved)
+
+            # Если точки лежат в полигонах - добавляем их в точки пересечений (множество узлов)
+            # Если не лежат - добавляем в точки пересечений ближайшие точки полигонов,
+            # сами точки начала и конца будут только в графе
+            if current_point not in self.map_renderer.intersection_points:
+                self.map_renderer.intersection_points.append(current_point)
+            if end_point not in self.map_renderer.intersection_points:
+                self.map_renderer.intersection_points.append(end_point)
+            self.graph.add_node(start_point)
+            self.graph.add_node(end_point)
+
+            start_interesting_points = self.visit_point(current_point)
+            end_interesting_points = self.visit_point(end_point, rotation=180)
+
+            if end_interesting_points != 0 and start_interesting_points != 0 and create_new_graph:
+                for point in self.map_renderer.intersection_points:
+                    self.visit_point(point)
+
+            if end_point_saved:
+                end_point = end_point_saved
+
+            build_graph_time = round(time.time() - build_graph_start_time, 3)
+
+            # Вызов A* и Дейкстры, отрисовка пути
             find_path_start_time = time.time()
             paths = []
-            # Длина пути только для сравнения алгоритмов поиска, считается по весам ребер
-            if self.map_renderer.graph_params['search_algorithm'] == 'Dijkstra':
-                # paths.append(networkx.dijkstra_path(self.graph, start_point, end_point))
-                paths.append(networkx.bidirectional_dijkstra(self.graph, start_point, end_point)[1])
-            elif self.map_renderer.graph_params['search_algorithm'] == 'A*':
-                paths.append(networkx.astar_path(self.graph, start_point, end_point, heuristic=astar_heuristic))
+            try:
+                # Длина пути только для сравнения алгоритмов поиска, считается по весам ребер
+                if self.map_renderer.graph_params['search_algorithm'] == 'Dijkstra':
+                    # paths.append(networkx.dijkstra_path(self.graph, start_point, end_point))
+                    paths.append(networkx.bidirectional_dijkstra(self.graph, start_point, end_point)[1])
+                elif self.map_renderer.graph_params['search_algorithm'] == 'A*':
+                    paths.append(networkx.astar_path(self.graph, start_point, end_point, heuristic=astar_heuristic))
+            except networkx.NetworkXNoPath:
+                raise networkx.NetworkXNoPath('No path between points.')
 
             max_miles_outside_polygon = 2.5
+            too_far_from_polygon_exc = ''
             if not start_point_in_poly:
                 for path in paths:
-                    if self.graph.get_edge_data(path[0], path[1])['distance'] > max_miles_outside_polygon:
-                        raise networkx.exception.NetworkXNoPath
+                    distance = round(self.graph.get_edge_data(path[0], path[1])['distance'], 2)
+                    if distance > max_miles_outside_polygon:
+                        too_far_from_polygon_exc += (f'start_point is too far from nearest polygon '
+                                                     f'({distance} > {max_miles_outside_polygon} miles).')
             if not end_point_in_poly:
                 for path in paths:
-                    if self.graph.get_edge_data(path[-2], path[-1])['distance'] > max_miles_outside_polygon:
-                        raise networkx.exception.NetworkXNoPath
+                    distance = round(self.graph.get_edge_data(path[-2], path[-1])['distance'], 2)
+                    if distance > max_miles_outside_polygon:
+                        if too_far_from_polygon_exc:
+                            too_far_from_polygon_exc += ' '
+                        too_far_from_polygon_exc += (f'end_point is too far from nearest polygon '
+                                                     f'({distance} > {max_miles_outside_polygon} miles).')
+            if too_far_from_polygon_exc:
+                raise networkx.NetworkXNoPath(too_far_from_polygon_exc)
 
             find_path_time = round(time.time() - find_path_start_time, 3)
 
             result_graph = self.map_renderer.show_graph(self.graph, paths, build_graph_time, find_path_time,
                                                         create_new_graph, drone_mode)
 
-        except networkx.exception.NetworkXNoPath:
-            result_graph['Error'] = 'Маршрут найти не удалось!'
+        except networkx.NetworkXNoPath as exc:
+            result_graph['Error'] = f'Маршрут найти не удалось! {str(exc)}'
             result_graph['Точка отправления'] = self.map_renderer.get_lat_lon_from_img_coords(start_point.x,
                                                                                               start_point.y)
             result_graph['Точка прибытия'] = self.map_renderer.get_lat_lon_from_img_coords(end_point.x,
                                                                                            end_point.y)
             if drone_mode:
                 drone_response = {
-                    "error": "Route not found.",
+                    "error": f"Route not found. {str(exc)}",
                     "start_point": [format_coordinate(c) for c in result_graph.get('Точка отправления')],
                     "end_point": [format_coordinate(c) for c in result_graph.get('Точка прибытия')]
                 }
