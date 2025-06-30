@@ -7,6 +7,7 @@ import networkx
 import numpy as np
 import shapely
 import shapely.ops
+from joblib import Parallel, delayed, parallel_backend
 
 from DataMovements.data_movements import load_clusters, get_hash_value, get_ds_hash_id, store_graph, check_graph, \
     get_hash_params, update_graph_edges, load_graph
@@ -43,6 +44,80 @@ def find_path(graph_params, clustering_params, cl_hash_id, gr_hash_id=None):
                                    coords['end_lat'], gr_hash_id)
 
 
+def _get_edge_distance(point_1, point_2, renderer_data):
+    web_x1, web_y1 = (renderer_data['left_top'][0] + point_1.x / renderer_data['kx'],
+                      renderer_data['left_top'][1] + point_1.y / renderer_data['ky'])
+    web_x2, web_y2 = (renderer_data['left_top'][0] + point_2.x / renderer_data['kx'],
+                      renderer_data['left_top'][1] + point_2.y / renderer_data['ky'])
+    lon1, lat1 = mercantile.lnglat(web_x1, web_y1)
+    lon2, lat2 = mercantile.lnglat(web_x2, web_y2)
+    return mpu.haversine_distance((lat1, lon1), (lat2, lon2)) / 1.85
+
+
+def _calculate_edges_for_point(current_point, rotation, renderer_data, intersection_points, graph_params):
+    angle_of_vision = graph_params['angle_of_vision']
+    available_directions = {}
+    edges_to_add = []
+
+    for key in renderer_data['polygon_bounds'].keys():
+        if shapely.intersects(renderer_data['polygon_buffers'][key], current_point):
+            available_directions[key] = renderer_data['average_courses'][key]
+
+    angles = {point: (math.atan2(point.y - current_point.y, point.x - current_point.x)
+                      + 2 * math.pi) % (math.pi * 2) for point in intersection_points}
+
+    for key, direction in available_directions.items():
+        angle_center = (direction - 90 - rotation + 360) % 360
+        angle_left = angle_center - angle_of_vision / 2
+        angle_right = angle_center + angle_of_vision / 2
+        angle_left_rad = math.radians(angle_left)
+        angle_center_rad = math.radians(angle_center)
+        angle_right_rad = math.radians(angle_right)
+
+        try:
+            current_angles_keys = []
+            hull_type = renderer_data['clustering_params']['hull_type']
+            if hull_type == 'convex_hull':
+                current_angles_keys = shapely.intersection(
+                    renderer_data['polygon_buffers'][key], shapely.MultiPoint(list(angles.keys()))).geoms
+            elif hull_type == 'concave_hull':
+                current_angles_keys_multipoint = shapely.intersection(
+                    renderer_data['polygon_buffers'][key], shapely.MultiPoint(list(angles.keys()))).geoms
+                current_angles_keys = [
+                    point for point in current_angles_keys_multipoint
+                    if shapely.contains(renderer_data['polygon_buffers'][key],
+                                        shapely.LineString([point, current_point]))]
+        except AttributeError:
+            continue
+
+        for point in current_angles_keys:
+            if angle_left_rad <= angles[point] <= angle_right_rad:
+                angle_deviation = math.degrees(abs(angles[point] - angle_center_rad))
+                distance = _get_edge_distance(point, current_point, renderer_data)
+                speed = renderer_data['average_speeds'][key] / 10
+                p = graph_params['weight_func_degree']
+                weight = np.power(
+                    np.power(abs((distance / speed) * graph_params['weight_time_graph']), p) +
+                    np.power(abs(angle_deviation * graph_params['weight_course_graph']), p),
+                    1 / p)
+
+                edge_start, edge_end = (point, current_point) if rotation == 180 else (current_point, point)
+
+                edge_data = {
+                    'u': edge_start, 'v': edge_end, 'weight': weight,
+                    'color': renderer_data['colors'][key], 'angle_deviation': angle_deviation,
+                    'distance': distance, 'speed': speed
+                }
+                edges_to_add.append(edge_data)
+
+    return edges_to_add
+
+
+def _worker_visit_point(args):
+    point, renderer_data, intersection_points, graph_params = args
+    return _calculate_edges_for_point(point, 0, renderer_data, intersection_points, graph_params)
+
+
 class GraphBuilder:
     def __init__(self, west, south, east, north, zoom, df, cl_hash_id, ds_hash_value):
         self.map_renderer = MapRenderer(west=west, south=south, east=east, north=north,
@@ -62,81 +137,18 @@ class GraphBuilder:
     def get_nearest_poly_point(self, point):
         polygon_union = [shapely.Polygon(polygon) for polygon in self.map_renderer.polygon_bounds.values()]
         nearest_point = shapely.ops.nearest_points(shapely.ops.unary_union(polygon_union), point)[0]
-        distance = self.get_edge_distance(point, nearest_point)
+        renderer_data = {
+            'left_top': self.map_renderer.left_top,
+            'kx': self.map_renderer.kx,
+            'ky': self.map_renderer.ky,
+        }
+        distance = _get_edge_distance(point, nearest_point, renderer_data)
         self.graph.add_edge(point, nearest_point, weight=0, color=[1, 0, 0, 1], angle_deviation=0,
                             distance=distance, speed=15)
         self.graph.add_edge(nearest_point, point, weight=0, color=[1, 0, 0, 1], angle_deviation=0,
                             distance=distance, speed=15)
+
         return nearest_point
-
-    def visit_point(self, current_point, rotation=0):
-        # Угол обзора в градусах
-        angle_of_vision = self.map_renderer.graph_params['angle_of_vision']
-
-        available_directions = {}
-        # Ищем точки с прямым доступом в точку Б
-        interesting_points = 0
-        for key in self.map_renderer.polygon_bounds.keys():
-            if shapely.intersects(self.map_renderer.polygon_buffers[key], current_point):
-                available_directions[key] = self.map_renderer.average_courses[key]
-
-        angles = {point: (math.atan2(point.y - current_point.y, point.x - current_point.x)
-                          + 2 * math.pi) % (math.pi * 2) for point in self.map_renderer.intersection_points}
-
-        for key, direction in available_directions.items():
-            angle_center = (direction - 90 - rotation + 360) % 360
-            # Определяем границы видимости
-            angle_left = angle_center - angle_of_vision / 2
-            angle_right = angle_center + angle_of_vision / 2
-            # Конвертируем углы в радианы
-            angle_left_rad = math.radians(angle_left)
-            angle_center_rad = math.radians(angle_center)
-            angle_right_rad = math.radians(angle_right)
-
-            try:
-                current_angles_keys = []
-                if self.map_renderer.clustering_params['hull_type'] == 'convex_hull':
-                    current_angles_keys = shapely.intersection(
-                        self.map_renderer.polygon_buffers[key], shapely.MultiPoint(list(angles.keys()))).geoms
-                elif self.map_renderer.clustering_params['hull_type'] == 'concave_hull':
-                    current_angles_keys_multipoint = shapely.intersection(
-                        self.map_renderer.polygon_buffers[key], shapely.MultiPoint(list(angles.keys()))).geoms
-                    current_angles_keys = [
-                        point for point in current_angles_keys_multipoint
-                        if shapely.contains(self.map_renderer.polygon_buffers[key],
-                                            shapely.LineString([point, current_point]))]
-            except AttributeError:
-                continue
-
-            for point in current_angles_keys:
-                if angle_left_rad <= angles[point] <= angle_right_rad:
-                    interesting_points += 1
-                    # Вес = (abs(расстояние в милях / скорость в узлах * вес времени) ** p +
-                    # + abs(разница направлений * вес направления) ** p) ^ 1/p
-                    angle_deviation = math.degrees(abs(angles[point] - angle_center_rad))
-                    distance = self.get_edge_distance(point, current_point)
-                    speed = self.map_renderer.average_speeds[key] / 10
-                    p = self.map_renderer.graph_params['weight_func_degree']
-                    weight = np.power(
-                        np.power(abs((distance / speed) * self.map_renderer.graph_params['weight_time_graph']), p) +
-                        np.power(abs(angle_deviation * self.map_renderer.graph_params['weight_course_graph']), p),
-                        1 / p)
-                    if rotation == 180:
-                        edge_end, edge_start = current_point, point
-                    else:
-                        edge_start, edge_end = current_point, point
-                    # Обновляем вес существующего ребра, только если он больше нового
-                    data = self.graph.get_edge_data(current_point, point)
-                    if data is not None:
-                        if data['weight'] > weight:
-                            self.graph.add_edge(edge_start, edge_end, weight=weight,
-                                                color=self.map_renderer.colors[key],
-                                                angle_deviation=angle_deviation, distance=distance, speed=speed)
-                    else:
-                        self.graph.add_edge(edge_start, edge_end, weight=weight, color=self.map_renderer.colors[key],
-                                            angle_deviation=angle_deviation, distance=distance, speed=speed)
-
-        return interesting_points
 
     def recalculate_edges(self, gr_hash_id):
         p = self.map_renderer.graph_params['weight_func_degree']
@@ -183,25 +195,55 @@ class GraphBuilder:
             if not end_point_in_poly:
                 end_point_saved = end_point
                 end_point = self.get_nearest_poly_point(end_point)
-                points_to_delete.append(end_point)
-            points_to_delete.append(end_point_saved)
+                points_to_delete.append(end_point_saved)
+            points_to_delete.append(end_point)
 
-            # Если точки лежат в полигонах - добавляем их в точки пересечений (множество узлов)
-            # Если не лежат - добавляем в точки пересечений ближайшие точки полигонов,
-            # сами точки начала и конца будут только в графе
             if current_point not in self.map_renderer.intersection_points:
                 self.map_renderer.intersection_points.append(current_point)
             if end_point not in self.map_renderer.intersection_points:
                 self.map_renderer.intersection_points.append(end_point)
+
             self.graph.add_node(start_point)
             self.graph.add_node(end_point)
 
-            start_interesting_points = self.visit_point(current_point)
-            end_interesting_points = self.visit_point(end_point, rotation=180)
+            renderer_data = {
+                'left_top': self.map_renderer.left_top,
+                'kx': self.map_renderer.kx,
+                'ky': self.map_renderer.ky,
+                'polygon_bounds': self.map_renderer.polygon_bounds,
+                'polygon_buffers': self.map_renderer.polygon_buffers,
+                'average_courses': self.map_renderer.average_courses,
+                'average_speeds': self.map_renderer.average_speeds,
+                'colors': self.map_renderer.colors,
+                'clustering_params': self.map_renderer.clustering_params
+            }
 
-            if end_interesting_points != 0 and start_interesting_points != 0 and create_new_graph:
-                for point in self.map_renderer.intersection_points:
-                    self.visit_point(point)
+            intersection_points = self.map_renderer.intersection_points
+            graph_params = self.map_renderer.graph_params
+
+            start_edges = _calculate_edges_for_point(current_point, 0, renderer_data, intersection_points, graph_params)
+            end_edges = _calculate_edges_for_point(end_point, 180, renderer_data, intersection_points, graph_params)
+
+            start_interesting_points = len(start_edges)
+            end_interesting_points = len(end_edges)
+
+            for edge in start_edges + end_edges:
+                self.graph.add_edge(edge['u'], edge['v'], **{k: v for k, v in edge.items() if k not in ['u', 'v']})
+
+            if start_interesting_points != 0 and end_interesting_points != 0 and create_new_graph:
+                with parallel_backend('loky'):
+                    results = Parallel(n_jobs=-1)(
+                        delayed(_calculate_edges_for_point)(point, 0, renderer_data, intersection_points, graph_params)
+                        for point in intersection_points
+                        if point not in (current_point, end_point)
+                    )
+
+                for edge_list in results:
+                    for edge_data in edge_list:
+                        existing_edge = self.graph.get_edge_data(edge_data['u'], edge_data['v'])
+                        if existing_edge is None or existing_edge.get('weight', float('inf')) > edge_data['weight']:
+                            self.graph.add_edge(edge_data['u'], edge_data['v'],
+                                                **{k: v for k, v in edge_data.items() if k not in ['u', 'v']})
 
             if end_point_saved:
                 end_point = end_point_saved
