@@ -5,6 +5,7 @@ function createImageLayer(options) {
     return new Promise((resolve, reject) => {
         const image = new Image();
         image.onload = function () {
+            const newPixelExtent = [0, 0, this.width, this.height];
             const layer = new ol.layer.Image({
                 name: options.name,
                 visible: options.visible !== undefined ? options.visible : true,
@@ -13,10 +14,10 @@ function createImageLayer(options) {
                     url: options.url,
                     imageSize: [this.width, this.height],
                     projection: options.projection,
-                    imageExtent: options.imageExtent,
+                    imageExtent: newPixelExtent,
                 })
             });
-            resolve(layer);
+            resolve({layer, newPixelExtent});
         };
         image.onerror = function () {
             console.error(`Не удалось загрузить изображение для слоя "${options.name}" по URL: ${options.url}`);
@@ -41,9 +42,12 @@ backgroundImage.onload = function () {
     const imageWidth = this.width;
     const imageHeight = this.height;
 
-    const pixelExtent = [0, 0, imageWidth, imageHeight];
-    const pixelProjection = new ol.proj.Projection({
+    let pixelExtent = [0, 0, imageWidth, imageHeight];
+    let pixelProjection = new ol.proj.Projection({
         code: 'custom-pixel-map', units: 'pixels', extent: pixelExtent,
+    });
+    let zoomToExtentControl = new ol.control.ZoomToExtent({
+        extent: pixelExtent
     });
 
     const map = new ol.Map({
@@ -57,12 +61,12 @@ backgroundImage.onload = function () {
         view: new ol.View({
             projection: pixelProjection,
             center: ol.extent.getCenter(pixelExtent),
-            zoom: 2,
-            minZoom: 2,
-            maxZoom: 4,
+            zoom: 1,
+            minZoom: 1,
+            maxZoom: 6,
             extent: pixelExtent
         }),
-        controls: ol.control.defaults.defaults({attribution: false}).extend([new ol.control.FullScreen(), new ol.control.ZoomToExtent({extent: pixelExtent})])
+        controls: ol.control.defaults.defaults({attribution: false}).extend([new ol.control.FullScreen(), zoomToExtentControl])
     });
 
     map.addControl(new ol.control.LayerSwitcher({reverse: false}));
@@ -214,12 +218,32 @@ backgroundImage.onload = function () {
             });
             geographicExtent = data[2];
             map.getLayers().getArray().filter(l => l.get('name') === 'Graph').forEach(l => map.removeLayer(l));
-            const graphLayer = await createImageLayer({
-                name: 'Graph', url: data[0], projection: pixelProjection, imageExtent: pixelExtent
+            const {layer: graphLayer, newPixelExtent} = await createImageLayer({
+                name: 'Graph',
+                url: data[0],
+                projection: pixelProjection,
+                imageExtent: pixelExtent
             });
+            pixelExtent = newPixelExtent;
             map.addLayer(graphLayer);
+            pixelProjection.setExtent(pixelExtent);
+            map.setView(new ol.View({
+                projection: pixelProjection,
+                extent: pixelExtent,
+                center: ol.extent.getCenter(pixelExtent),
+                zoom: 1,
+                minZoom: 1,
+                maxZoom: 6
+            }));
+            map.getView().fit(pixelExtent);
+            map.removeControl(zoomToExtentControl);
+            zoomToExtentControl = new ol.control.ZoomToExtent({extent: pixelExtent});
+            map.addControl(zoomToExtentControl);
             const backgroundLayer = map.getLayers().getArray().find(l => l.get('name') === 'Background');
-            if (backgroundLayer) backgroundLayer.setVisible(false);
+            // if (backgroundLayer) backgroundLayer.setVisible(false);
+            if (backgroundLayer) {
+                map.removeLayer(backgroundLayer);
+            }
             ['StartPoint', 'EndPoint'].forEach(name => {
                 const layer = map.getLayers().getArray().find(l => l.get('name') === name);
                 if (layer) {
@@ -264,16 +288,44 @@ backgroundImage.onload = function () {
                 data: JSON.stringify(parameters)
             });
             geographicExtent = data[2];
-            const [clustersLayer, polygonsLayer] = await Promise.all([createImageLayer({
-                name: 'Clusters', url: data[0][0], visible: false, projection: pixelProjection, imageExtent: pixelExtent
-            }), createImageLayer({
-                name: 'Polygons', url: data[0][1], visible: true, projection: pixelProjection, imageExtent: pixelExtent
-            })]);
+            const [{layer: clustersLayer}, {layer: polygonsLayer, newPixelExtent}] = await Promise.all([
+                createImageLayer({
+                    name: 'Clusters',
+                    url: data[0][0],
+                    visible: false,
+                    projection: pixelProjection,
+                    imageExtent: pixelExtent
+                }),
+                createImageLayer({
+                    name: 'Polygons',
+                    url: data[0][1],
+                    visible: true,
+                    projection: pixelProjection,
+                    imageExtent: pixelExtent
+                })
+            ]);
+            pixelExtent = newPixelExtent;
             map.getLayers().getArray().filter(l => ["Clusters", "Polygons", "Graph", "StartPoint", "EndPoint", "Ships"].includes(l.get('name'))).forEach(l => map.removeLayer(l));
             map.addLayer(clustersLayer);
             map.addLayer(polygonsLayer);
+            pixelProjection.setExtent(pixelExtent);
+            map.setView(new ol.View({
+                projection: pixelProjection,
+                extent: pixelExtent,
+                center: ol.extent.getCenter(pixelExtent),
+                zoom: 1,
+                minZoom: 1,
+                maxZoom: 6
+            }));
+            map.getView().fit(pixelExtent);
+            map.removeControl(zoomToExtentControl);
+            zoomToExtentControl = new ol.control.ZoomToExtent({extent: pixelExtent});
+            map.addControl(zoomToExtentControl);
             const backgroundLayer = map.getLayers().getArray().find(l => l.get('name') === 'Background');
-            if (backgroundLayer) backgroundLayer.setVisible(false);
+            // if (backgroundLayer) backgroundLayer.setVisible(false);
+            if (backgroundLayer) {
+                map.removeLayer(backgroundLayer);
+            }
             document.getElementById("start_coords").value = "";
             document.getElementById("end_coords").value = "";
             legendElement.innerHTML = '';
@@ -281,6 +333,7 @@ backgroundImage.onload = function () {
             item.innerHTML = Object.entries(data[1]).map(([key, value]) => `<strong>${key}</strong>: ${value}<br>`).join('');
             legendElement.appendChild(item);
         } catch (error) {
+            alert(error);
             alert(`Ошибка при кластеризации: ${error.statusText || 'Проверьте консоль'}`);
         } finally {
             $("#loader").hide();

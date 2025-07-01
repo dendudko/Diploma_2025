@@ -320,9 +320,15 @@ class MapRenderer:
                        'Accept-Language': 'en-US,en;q=0.8',
                        'Connection': 'keep-alive'}
 
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            len_tiles = len(tiles)
+            print(f'Загружается карта, всего тайлов: {len_tiles}')
+            i = 1
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len_tiles) as executor:
                 futures = [executor.submit(load_tile, tile, min_x, min_y, tile_size, headers) for tile in tiles]
                 for future in concurrent.futures.as_completed(futures):
+                    i += 1
+                    if i % 100 == 0 or i == len_tiles:
+                        print(f'Загружено тайлов: {i}')
                     img, x, y = future.result()
                     ctx.set_source_surface(img, x, y)
                     ctx.paint()
@@ -409,8 +415,8 @@ class MapRenderer:
             with open(f'./static/images/clean/with_points_{self.ds_hash_value}.png', 'wb') as f:
                 self.map_image.write_to_png(f)
 
-            self.map_image = ImageSurface.create_from_png(f'./static/images/clean/{self.ds_hash_value}.png')
-            self.context = Context(self.map_image)
+        self.map_image = ImageSurface.create_from_png(f'./static/images/clean/{self.ds_hash_value}.png')
+        self.context = Context(self.map_image)
 
     def get_img_coords_from_lat_lon(self, lat, lon):
         # gps в меркатор
@@ -540,6 +546,7 @@ class MapRenderer:
             self.create_empty_map()
             self.calculate_points_on_image()
             self.create_empty_map_with_points()
+            self.create_new_empty_map = False
             # frac - можно выбрать, какую долю объектов нанести на карту
             if save_mode == 'clusters':
                 self.show_points(frac=1)
