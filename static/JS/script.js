@@ -333,7 +333,6 @@ backgroundImage.onload = function () {
             item.innerHTML = Object.entries(data[1]).map(([key, value]) => `<strong>${key}</strong>: ${value}<br>`).join('');
             legendElement.appendChild(item);
         } catch (error) {
-            alert(error);
             alert(`Ошибка при кластеризации: ${error.statusText || 'Проверьте консоль'}`);
         } finally {
             $("#loader").hide();
