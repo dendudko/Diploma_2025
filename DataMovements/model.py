@@ -168,6 +168,7 @@ class Graphs(db.Model):
 class ApprovedGraphs(db.Model):
     __tablename__ = 'approved_graphs'
     graph_id = db.Column(db.Integer, db.ForeignKey('graphs.graph_id', ondelete='CASCADE'), primary_key=True)
+
     graph = db.relationship('Graphs', back_populates='approved_graphs')
 
 
@@ -205,13 +206,3 @@ class GraphEdges(db.Model):
     start_vertex = db.relationship('GraphVertexes', foreign_keys=[start_vertex_id], back_populates='edges_start')
     end_vertex = db.relationship('GraphVertexes', foreign_keys=[end_vertex_id], back_populates='edges_end')
     graph = db.relationship('Graphs', back_populates='edges')
-    routes = db.relationship('Routes', back_populates='edge', cascade="all, delete-orphan", passive_deletes=True)
-
-
-class Routes(db.Model):
-    __tablename__ = 'routes'
-    route_id = db.Column(db.Integer, primary_key=True)
-    edge_id = db.Column(db.Integer, db.ForeignKey('graph_edges.edge_id', ondelete='CASCADE'), nullable=False,
-                        index=True)
-
-    edge = db.relationship('GraphEdges', back_populates='routes')
