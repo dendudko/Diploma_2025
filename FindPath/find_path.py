@@ -35,7 +35,7 @@ def find_path(graph_params, clustering_params, cl_hash_id, gr_hash_id=None):
     ds_hash_id = get_ds_hash_id(dataset_id)
     ds_hash_value = get_hash_value(ds_hash_id)
 
-    graph_builder = GraphBuilder(west=min_lat, south=min_lon, east=max_lat, north=max_lon, zoom=12, df=df,
+    graph_builder = GraphBuilder(west=min_lon, south=min_lat, east=max_lon, north=max_lat, zoom=12, df=df,
                                  cl_hash_id=cl_hash_id, ds_hash_value=ds_hash_value)
     graph_builder.map_renderer.clustering_params = clustering_params
     graph_builder.map_renderer.graph_params = graph_params

@@ -89,7 +89,7 @@ def clustering(clustering_params):
 
     ds_hash_id = get_ds_hash_id(dataset_id)
     ds_hash_value = get_hash_value(ds_hash_id)
-    map_renderer = MapRenderer(west=min_lat, south=min_lon, east=max_lat, north=max_lon, zoom=12, df=df,
+    map_renderer = MapRenderer(west=min_lon, south=min_lat, east=max_lon, north=max_lat, zoom=12, df=df,
                                cl_hash_id=cl_hash_id, ds_hash_value=ds_hash_value)
     map_renderer.clustering_params = clustering_params
     img_paths, result_clustering = map_renderer.create_clustered_map(dbscan_time=dbscan_time)

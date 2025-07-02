@@ -64,8 +64,9 @@ def store_dataset(df: pd.DataFrame, dataset_name, user_id, hash_value):
 
     new_dataset = Datasets(dataset_name=dataset_name, user_id=user_id, source_hash_id=new_hash.hash_id)
     db.session.add(new_dataset)
+    db.session.flush()
 
-    df['hash_id'] = new_hash.hash_id
+    df['dataset_id'] = new_dataset.id
     records = df.to_dict(orient='records')
     db.session.bulk_insert_mappings(PositionsCleaned, records)
 
@@ -267,7 +268,7 @@ def load_positions_cleaned(dataset_id):
             PositionsCleaned.longitude.label('lon'),
             PositionsCleaned.speed,
             PositionsCleaned.course
-        ).filter_by(hash_id=dataset.source_hash_id).statement,
+        ).filter_by(dataset_id=dataset.id).statement,
         db.engine
     )
 

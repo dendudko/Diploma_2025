@@ -62,7 +62,7 @@ class MapRenderer:
         if len(self.df_points_on_image) == 0:
             # Добавляем объекты с пересчитанными координатами в df_points_on_image
             # gps в web-mercator
-            xy = [mercantile.xy(x, y) for x, y in zip(self.df.lat, self.df.lon)]
+            xy = [mercantile.xy(x, y) for x, y in zip(self.df.lon, self.df.lat)]
             # переводим x, y в координаты изображения
             self.df_points_on_image.x = [(v[0] - self.left_top[0]) * self.kx for v in xy]
             self.df_points_on_image.y = [(v[1] - self.left_top[1]) * self.ky for v in xy]

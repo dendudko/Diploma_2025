@@ -27,8 +27,6 @@ class Hashes(db.Model):
     timestamp = db.Column(db.DateTime, nullable=False)
     params = db.Column(JSON, nullable=True)
 
-    positions = db.relationship('PositionsCleaned', back_populates='source_hash', cascade="all, delete-orphan",
-                                passive_deletes=True)
     clusters = db.relationship('Clusters', back_populates='hash', cascade="all, delete-orphan", passive_deletes=True)
     graphs = db.relationship('Graphs', back_populates='hash', cascade="all, delete-orphan", passive_deletes=True)
     source_of_datasets = db.relationship('Datasets', back_populates='source_hash', cascade="all, delete-orphan",
@@ -54,6 +52,8 @@ class Datasets(db.Model):
     source_hash = db.relationship('Hashes', back_populates='source_of_datasets', foreign_keys=[source_hash_id])
     analysis_links = db.relationship('DatasetAnalysisLink', back_populates='dataset', cascade="all, delete-orphan",
                                      passive_deletes=True)
+    positions = db.relationship('PositionsCleaned', back_populates='dataset', cascade="all, delete-orphan",
+                                passive_deletes=True)
 
 
 class DatasetAnalysisLink(db.Model):
@@ -70,14 +70,14 @@ class DatasetAnalysisLink(db.Model):
 class PositionsCleaned(db.Model):
     __tablename__ = 'positions_cleaned'
     position_id = db.Column(db.Integer, primary_key=True)
-    hash_id = db.Column(db.Integer, db.ForeignKey('hashes.hash_id', ondelete='CASCADE'), nullable=False,
-                        index=True)
+    dataset_id = db.Column(db.Integer, db.ForeignKey('datasets.id', ondelete='CASCADE'), nullable=False,
+                           index=True)
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
     speed = db.Column(db.Float)
     course = db.Column(db.Float)
 
-    source_hash = db.relationship('Hashes', back_populates='positions')
+    dataset = db.relationship('Datasets', back_populates='positions')
     cluster_membership = db.relationship('ClusterMembers', back_populates='position', uselist=False,
                                          cascade="all, delete-orphan", passive_deletes=True)
 

@@ -23,6 +23,6 @@ def load_clustering_params():
 
 
 def load_graph_params():
-    return {'points_inside': False, 'distance_delta': 150.0, 'weight_func_degree': 2.0,
+    return {'points_inside': True, 'distance_delta': 150.0, 'weight_func_degree': 2.0,
             'angle_of_vision': 30.0, 'weight_time_graph': 1.0, 'weight_course_graph': 0.1,
             'search_algorithm': 'Dijkstra'}
